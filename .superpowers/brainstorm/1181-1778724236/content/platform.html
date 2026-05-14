@@ -1,0 +1,40 @@
+<h2>AutoSalesAgent 前后端架构方案选择</h2>
+<p class="subtitle">后端 API + 前端 UI，哪个技术组合适合本项目？</p>
+
+<div class="options">
+  <div class="option" data-choice="react" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>React 18 + TypeScript + FastAPI</h3>
+      <p>现代化 SPA 架构，组件化开发，生态丰富。FastAPI 提供 REST API + WebSocket。使用 Vite 构建，Ant Design 组件库。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优势</h4><ul><li>组件化，可维护性强</li><li>TypeScript 类型安全</li><li>Ant Design 企业级 UI 组件</li><li>Vite 极速构建</li></ul></div>
+        <div class="cons"><h4>代价</h4><ul><li>需要 Node.js 环境</li><li>构建步骤复杂</li><li>学习曲线较陡</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="vue" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Vue 3 + TypeScript + FastAPI</h3>
+      <p>轻量级 SPA，Composition API，上手简单。FastAPI 提供 REST API。Vite 构建，Element Plus 组件库。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优势</h4><ul><li>更轻量，学习曲线平缓</li><li>Composition API 灵活</li><li>Element Plus 成熟稳定</li></ul></div>
+        <div class="cons"><h4>代价</h4><ul><li>生态较 React 小</li><li>企业级项目案例较少</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="vanilla" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>FastAPI + Jinja2 模板 (零构建)</h3>
+      <p>服务端渲染 HTML，无前端构建步骤。FastAPI 直接返回页面，配合 HTMX 实现局部刷新。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>优势</h4><ul><li>零构建，部署极简</li><li>纯 Python 技术栈</li><li>启动快，无 Node 依赖</li></ul></div>
+        <div class="cons"><h4>代价</h4><ul><li>交互体验受限</li><li>不支持复杂 UI 状态</li><li>前端生态缺失</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

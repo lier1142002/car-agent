@@ -1,0 +1,168 @@
+<h2>融合方案：三栏布局</h2>
+<p class="subtitle">侧边栏 + 聊天区 + 知识追溯面板</p>
+
+<div class="mockup">
+  <div class="mockup-header">AutoSalesAgent — 最终布局确认</div>
+  <div class="mockup-body">
+    <div style="display:flex; height:440px; border:1px solid #333; border-radius:6px; overflow:hidden; font-size:13px;">
+
+      <!-- 左侧边栏 -->
+      <div style="width:220px; background:#1a1a2e; color:#fff; padding:14px; display:flex; flex-direction:column; gap:6px;">
+        <div style="font-weight:bold; font-size:15px; margin-bottom:12px;">🚗 AutoSalesAgent</div>
+        <div style="padding:6px 10px; background:#2d2d5e; border-radius:6px; font-size:12px;">
+          📚 知识库<br><span style="color:#7ee787;">✅ 已索引 (12个块)</span>
+        </div>
+        <div style="padding:6px 10px; background:#2d2d5e; border-radius:6px; font-size:12px;">
+          🛠 可用工具<br><span style="color:#58a6ff;">RAG · 搜索 · 计算器</span>
+        </div>
+        <div style="margin:8px 0; border-top:1px solid #444;"></div>
+        <div style="font-size:11px; color:#aaa; text-transform:uppercase;">对话历史</div>
+        <div style="padding:6px 8px; border-radius:4px; background:#252550; font-size:11px; cursor:pointer;">
+          💬 星辰ES9续航参数
+        </div>
+        <div style="padding:6px 8px; border-radius:4px; font-size:11px; color:#999;">
+          💬 对比Model Y价格
+        </div>
+        <div style="margin-top:auto; padding:8px; border-radius:6px; border:1px dashed #555; text-align:center; font-size:11px; color:#888;">
+          + 新建对话
+        </div>
+      </div>
+
+      <!-- 中间聊天区 -->
+      <div style="flex:1; background:#0d1117; display:flex; flex-direction:column;">
+        <div style="padding:12px 16px; border-bottom:1px solid #21262d; font-size:14px; color:#fff;">
+          💬 当前对话 · 星辰ES9产品咨询
+        </div>
+        <div style="flex:1; padding:20px; overflow:hidden; display:flex; flex-direction:column; gap:16px;">
+          <!-- 用户消息 -->
+          <div style="display:flex; justify-content:flex-end;">
+            <div style="max-width:70%; background:#1f6feb; color:#fff; padding:10px 14px; border-radius:12px 12px 0 12px; font-size:13px;">
+              星辰ES9的纯电续航里程是多少？和特斯拉Model Y比怎么样？
+            </div>
+          </div>
+          <!-- Agent 回复 -->
+          <div style="display:flex; gap:8px; align-items:flex-start;">
+            <div style="width:28px; height:28px; background:#7ee787; border-radius:50%; text-align:center; line-height:28px; font-size:13px;">🤖</div>
+            <div style="max-width:80%; background:#161b22; color:#e6edf3; padding:12px 16px; border-radius:4px 12px 12px 12px; font-size:13px; border:1px solid #30363d;">
+              <p style="margin:0 0 8px;">星辰ES9 搭载<strong>100kWh三元锂电池</strong>，CLTC工况下纯电续航里程为 <strong>700公里</strong> [1]。</p>
+              <p style="margin:0 0 8px;">相比之下，特斯拉Model Y长续航版CLTC续航为 <strong>688公里</strong> [2]，星辰ES9多出约12公里。</p>
+              <p style="margin:0; color:#8b949e;">🔗 引用: <span style="color:#58a6ff;">[1] 产品手册P12</span> · <span style="color:#58a6ff;">[2] 特斯拉官网</span></p>
+            </div>
+          </div>
+          <!-- 思考中指示器 -->
+          <div style="display:flex; gap:12px; align-items:center; padding-left:36px;">
+            <div style="display:flex; gap:6px;">
+              <div style="width:6px; height:6px; background:#58a6ff; border-radius:50%; animation:pulse 1s infinite;"></div>
+              <div style="width:6px; height:6px; background:#58a6ff; border-radius:50%; animation:pulse 1s infinite 0.2s;"></div>
+              <div style="width:6px; height:6px; background:#58a6ff; border-radius:50%; animation:pulse 1s infinite 0.4s;"></div>
+            </div>
+            <span style="color:#8b949e; font-size:12px;">Agent 正在检索知识库...</span>
+          </div>
+        </div>
+        <!-- 输入区 -->
+        <div style="padding:12px 16px; border-top:1px solid #21262d; display:flex; gap:10px; align-items:center;">
+          <div style="flex:1; background:#161b22; border:1px solid #30363d; border-radius:8px; padding:10px 14px; color:#8b949e; font-size:13px;">
+            输入汽车相关问题...
+          </div>
+          <div style="background:#1f6feb; color:#fff; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
+            ↑ 发送
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧知识追溯面板 -->
+      <div style="width:300px; background:#161b22; border-left:1px solid #30363d; padding:14px; overflow-y:auto;">
+        <div style="font-weight:bold; color:#fff; font-size:14px; margin-bottom:6px;">📖 知识追溯</div>
+        <div style="color:#8b949e; font-size:11px; margin-bottom:14px;">本次回答引用的信息来源</div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="padding:10px 12px; background:#1c2333; border-radius:8px; border-left:3px solid #58a6ff;">
+            <div style="font-weight:bold; color:#fff; font-size:12px; margin-bottom:4px;">[1] 产品手册 P12</div>
+            <div style="color:#c9d1d9; font-size:11px; line-height:1.5;">星辰ES9 电池100kWh三元锂电池，CLTC续航700km，百公里能耗14.3kWh</div>
+            <div style="color:#58a6ff; font-size:10px; margin-top:4px;">score: 0.94 · rag_tool</div>
+          </div>
+          <div style="padding:10px 12px; background:#1c2333; border-radius:8px; border-left:3px solid #7ee787;">
+            <div style="font-weight:bold; color:#fff; font-size:12px; margin-bottom:4px;">[2] 特斯拉官网</div>
+            <div style="color:#c9d1d9; font-size:11px; line-height:1.5;">Model Y Long Range CLTC续航688km，电池78.4kWh</div>
+            <div style="color:#7ee787; font-size:10px; margin-top:4px;">score: 0.87 · web_search</div>
+          </div>
+          <div style="padding:10px 12px; background:#1c2333; border-radius:8px; border-left:3px solid #a371f7;">
+            <div style="font-weight:bold; color:#fff; font-size:12px; margin-bottom:4px;">[3] 行业对比报告</div>
+            <div style="color:#c9d1d9; font-size:11px; line-height:1.5;">同价位电动SUV续航排名：星辰ES9(700) > 极氪001(656)</div>
+            <div style="color:#a371f7; font-size:10px; margin-top:4px;">score: 0.81 · web_search</div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px; padding-top:14px; border-top:1px solid #30363d;">
+          <div style="font-weight:bold; color:#fff; font-size:12px; margin-bottom:8px;">🔍 检索路径</div>
+          <div style="font-size:11px; color:#c9d1d9; line-height:1.6;">
+            <div>1️⃣ Planning → rag_tool + web_search</div>
+            <div>2️⃣ RAG 混合检索 → 3 条命中</div>
+            <div>3️⃣ Web 搜索 → 2 条相关结果</div>
+            <div>4️⃣ LLM 综合生成回答</div>
+            <div style="color:#7ee787;">5️⃣ 质量评分: 0.85 ✅</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>组件化拆分</h3>
+  <p class="subtitle">三栏布局对应的 React 组件树</p>
+
+  <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:20px; font-family:monospace; font-size:13px; line-height:1.8;">
+    <div style="color:#ff7b72;">App</div>
+    <div style="margin-left:20px;">├── <span style="color:#d2a8ff;">Sidebar</span> <span style="color:#8b949e;">// 左侧：状态+历史</span></div>
+    <div style="margin-left:30px;">│   ├── KnowledgeStatus</div>
+    <div style="margin-left:30px;">│   ├── ToolStatus</div>
+    <div style="margin-left:30px;">│   └── ConversationList</div>
+    <div style="margin-left:20px;">├── <span style="color:#d2a8ff;">ChatPanel</span> <span style="color:#8b949e;">// 中间：对话区</span></div>
+    <div style="margin-left:30px;">│   ├── MessageList</div>
+    <div style="margin-left:30px;">│   │   ├── UserMessage</div>
+    <div style="margin-left:30px;">│   │   └── AgentMessage</div>
+    <div style="margin-left:30px;">│   ├── ThinkingIndicator</div>
+    <div style="margin-left:30px;">│   └── InputArea</div>
+    <div style="margin-left:20px;">└── <span style="color:#d2a8ff;">TracePanel</span> <span style="color:#8b949e;">// 右侧：知识追溯</span></div>
+    <div style="margin-left:30px;">    ├── SourceCard (×N)</div>
+    <div style="margin-left:30px;">    └── ExecutionPath</div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>前后端交互数据流</h3>
+
+  <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:20px; font-family:monospace; font-size:13px; line-height:1.6;">
+    <div><span style="color:#ff7b72;">POST /api/chat</span></div>
+    <div style="margin-left:20px; color:#8b949e;">→ { "query": "星辰ES9续航多少？" }</div>
+    <div style="margin-left:20px; color:#7ee787;">← { "answer": "...", "sources": [...], "trace": {...} }</div>
+    <div style="margin-top:8px;"><span style="color:#ff7b72;">WS /ws/chat</span></div>
+    <div style="margin-left:20px; color:#8b949e;">→ stream: plan → tool_call → tool_result → answer → reflection</div>
+    <div style="margin-left:20px; color:#7ee787;">← 实时推送每一步的执行状态</div>
+    <div style="margin-top:8px;"><span style="color:#ff7b72;">POST /api/index</span></div>
+    <div style="margin-left:20px; color:#8b949e;">→ { "file_path": "data/product.pdf" }</div>
+    <div style="margin-left:20px; color:#7ee787;">← { "status": "ok", "chunks": 12 }</div>
+    <div style="margin-top:8px;"><span style="color:#ff7b72;">GET /api/state</span></div>
+    <div style="margin-left:20px; color:#8b949e;">→ 获取 Agent 当前状态</div>
+    <div style="margin-left:20px; color:#7ee787;">← { "memory": [...], "tools": [...], "rag_indexed": true }</div>
+  </div>
+</div>
+
+<div class="options" style="margin-top:24px;">
+  <div class="option" data-choice="confirm" onclick="toggleSelect(this)">
+    <div class="letter">✅</div>
+    <div class="content">
+      <h3>确认此方案，开始实施</h3>
+      <p>三栏布局 + React TypeScript + FastAPI + WebSocket 实时推送</p>
+    </div>
+  </div>
+  <div class="option" data-choice="adjust" onclick="toggleSelect(this)">
+    <div class="letter">🔧</div>
+    <div class="content">
+      <h3>需要调整</h3>
+      <p>在终端中描述具体需要调整的地方</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,93 @@
+<h2>主界面布局方案选择</h2>
+<p class="subtitle">汽车销售培训 Agent 的聊天界面布局</p>
+
+<div class="options">
+  <div class="option" data-choice="sidebar" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>侧边栏 + 聊天区（推荐）</h3>
+      <p>左侧会话列表/知识库状态，右侧主聊天区域。典型的企业级布局。</p>
+      <div class="mockup">
+        <div class="mockup-header">Dashboard Layout</div>
+        <div class="mockup-body">
+          <div style="display:flex; height:300px; border:1px solid #333; border-radius:4px; overflow:hidden;">
+            <div style="width:240px; background:#1a1a2e; color:#fff; padding:12px; font-size:13px;">
+              <div style="font-weight:bold; margin-bottom:16px;">🚗 AutoSalesAgent</div>
+              <div style="margin-bottom:8px; color:#aaa;">📚 知识库状态: 已索引</div>
+              <div style="margin-bottom:8px; color:#aaa;">🛠 工具: RAG/搜索/计算</div>
+              <div style="margin-bottom:16px; color:#aaa;">──────────────</div>
+              <div style="color:#ccc; margin-bottom:8px;">💬 当前对话</div>
+              <div style="color:#888; font-size:11px;">星辰ES9 续航查询</div>
+              <div style="margin-top:auto; color:#888; font-size:11px; padding-top:140px;">+ 新建对话</div>
+            </div>
+            <div style="flex:1; background:#0d1117; display:flex; flex-direction:column;">
+              <div style="flex:1; padding:16px; overflow:hidden;">
+                <div style="color:#58a6ff; margin-bottom:12px; font-size:13px;">👤 用户: 星辰ES9续航多少？</div>
+                <div style="color:#7ee787; font-size:13px;">🤖 Agent: 星辰ES9 搭载...</div>
+              </div>
+              <div style="padding:12px; border-top:1px solid #30363d; display:flex; gap:8px;">
+                <div class="mock-input" style="flex:1;">输入问题...</div>
+                <div class="mock-button">发送</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="fullchat" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>全屏沉浸式聊天</h3>
+      <p>单一聊天窗口，信息密度较低但专注对话体验。适合移动端。</p>
+      <div class="mockup">
+        <div class="mockup-header">Chat Layout</div>
+        <div class="mockup-body">
+          <div style="height:300px; border:1px solid #333; border-radius:4px; overflow:hidden; display:flex; flex-direction:column; background:#0d1117;">
+            <div style="padding:12px; border-bottom:1px solid #30363d; color:#fff; font-size:14px;">🚗 AutoSalesAgent</div>
+            <div style="flex:1; padding:16px;">
+              <div style="color:#58a6ff; margin-bottom:12px; font-size:13px;">👤 星辰ES9续航多少？</div>
+              <div style="color:#7ee787; font-size:13px;">🤖 星辰ES9 搭载100kWh电池，CLTC续航700km [1]</div>
+            </div>
+            <div style="padding:12px; border-top:1px solid #30363d; display:flex; gap:8px;">
+              <div class="mock-input" style="flex:1;">输入问题...</div>
+              <div class="mock-button">发送</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="split" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>左右分栏：对话 + 知识面板</h3>
+      <p>左侧对话，右侧显示检索来源/参考资料。适合培训场景，可追溯信息出处。</p>
+      <div class="mockup">
+        <div class="mockup-header">Split Pane Layout</div>
+        <div class="mockup-body">
+          <div style="display:flex; height:300px; border:1px solid #333; border-radius:4px; overflow:hidden;">
+            <div style="flex:1; background:#0d1117; display:flex; flex-direction:column;">
+              <div style="flex:1; padding:16px;">
+                <div style="color:#58a6ff; margin-bottom:12px; font-size:13px;">👤 星辰ES9续航？</div>
+                <div style="color:#7ee787; font-size:13px;">🤖 700km [1]</div>
+              </div>
+              <div style="padding:12px; border-top:1px solid #30363d; display:flex; gap:8px;">
+                <div class="mock-input" style="flex:1;"></div>
+                <div class="mock-button">发送</div>
+              </div>
+            </div>
+            <div style="width:280px; background:#161b22; border-left:1px solid #30363d; padding:12px; font-size:12px; color:#ccc;">
+              <div style="color:#fff; font-weight:bold; margin-bottom:12px;">📖 参考来源</div>
+              <div style="margin-bottom:8px; padding:8px; background:#1c2333; border-radius:4px;">[1] 星辰ES9产品手册<br><span style="color:#58a6ff;">CLTC续航: 700km</span></div>
+              <div style="margin-bottom:8px; padding:8px; background:#1c2333; border-radius:4px;">[2] 电池参数<br><span style="color:#58a6ff;">100kWh三元锂</span></div>
+              <div style="margin-bottom:8px; padding:8px; background:#1c2333; border-radius:4px;">[3] 能耗<br><span style="color:#58a6ff;">14.3kWh/100km</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
