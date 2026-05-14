@@ -229,11 +229,15 @@ async def update_config(request: UpdateConfigRequest):
     if "embedding_provider" in updated:
         agent.rag_tool.embedding.switch_provider(config.embedding_provider)
     if any(k in updated for k in ("llm_api_key",)):
-        agent.llm_client = OpenAI(
+        new_client = OpenAI(
             api_key=config.llm_api_key,
             base_url=config.llm_api_url,
         )
-        agent.rag_tool.llm_client = agent.llm_client
+        agent.llm_client = new_client
+        agent.rag_tool.llm_client = new_client
+        agent.planning.llm_client = new_client
+        agent.reflection.llm_client = new_client
+        agent.memory.llm_client = new_client
 
     logger.info("配置已更新: %s", updated)
     return {"status": "ok", "updated": updated}
