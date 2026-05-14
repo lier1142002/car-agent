@@ -161,6 +161,32 @@ class Config:
             return False
         return True
 
+    def update_from_dict(self, data: dict) -> list[str]:
+        """运行时部分更新配置（不持久化到文件）。
+
+        Args:
+            data: 包含要更新字段的字典，仅更新传入的 key。
+
+        Returns:
+            list[str]: 已更新的字段名列表。
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        allowed_keys = {
+            "llm_api_key", "llm_api_url", "llm_model",
+            "embedding_api_key", "embedding_api_url", "embedding_model",
+            "embedding_provider",
+            "deepseek_api_key", "deepseek_api_url", "deepseek_embedding_model",
+            "serpapi_key", "llamaparse_api_key",
+        }
+        updated: list[str] = []
+        for key, value in data.items():
+            if key in allowed_keys and hasattr(self, key):
+                setattr(self, key, value)
+                updated.append(key)
+                logger.info("配置更新: %s", key)
+        return updated
+
 
 # 全局配置单例
 config = Config()
