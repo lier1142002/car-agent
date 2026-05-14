@@ -59,6 +59,31 @@ class Config:
         default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-v3")
     )
     embedding_dim: int = 1024  # 千问 text-embedding-v3 输出维度
+    embedding_provider: str = field(
+        default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "qwen")
+    )  # "qwen" 或 "deepseek"
+
+    # =========================================================================
+    # DeepSeek Embedding 配置（OpenAI 兼容接口）
+    # =========================================================================
+    deepseek_api_key: str = field(
+        default_factory=lambda: os.getenv(
+            "DEEPSEEK_API_KEY",
+            "sk-your-deepseek-api-key-here",
+        )
+    )
+    deepseek_api_url: str = field(
+        default_factory=lambda: os.getenv(
+            "DEEPSEEK_API_URL",
+            "https://api.deepseek.com/v1",
+        )
+    )
+    deepseek_embedding_model: str = field(
+        default_factory=lambda: os.getenv(
+            "DEEPSEEK_EMBEDDING_MODEL",
+            "text-embedding-v1",
+        )
+    )
 
     # =========================================================================
     # Milvus 向量数据库配置
