@@ -7,7 +7,12 @@
       "Skill(superpowers:writing-plans:*)",
       "Skill(superpowers:subagent-driven-development)",
       "Skill(superpowers:subagent-driven-development:*)",
-      "Bash(python -m py_compile \"frontend/backend/server.py\")"
+      "Bash(python -m py_compile \"frontend/backend/server.py\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('config.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(python -c \"from config import Config; c = Config\\(\\); print\\('Before:', c.llm_model\\); updated = c.update_from_dict\\({'llm_model': 'test-model', 'invalid_key': 'ignored'}\\); print\\('Updated fields:', updated\\); print\\('After:', c.llm_model\\); print\\('Invalid ignored \\(not in updated\\):', 'invalid_key' not in updated\\)\")",
+      "Bash(npx tsc *)"
     ]
   }
 }

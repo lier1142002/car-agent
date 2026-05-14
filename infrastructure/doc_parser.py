@@ -52,6 +52,7 @@ class DocParser:
             parser = LlamaParse(
                 api_key=self.api_key,
                 result_type="markdown",
+                num_workers=4,
                 verbose=False,
             )
             logger.info("开始解析 PDF: %s", file_path)

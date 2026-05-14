@@ -110,3 +110,17 @@
   background: rgba(88, 166, 255, 0.15);
   color: var(--accent-blue);
 }
+
+.settingsBtn {
+  padding: 10px 12px;
+  color: #8b949e;
+  cursor: pointer;
+  border-radius: 6px;
+  margin-top: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.settingsBtn:hover {
+  background: #21262d;
+  color: #e6edf3;
+}
