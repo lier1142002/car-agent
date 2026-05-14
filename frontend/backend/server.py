@@ -31,11 +31,8 @@ if str(_PROJECT_ROOT) not in sys.path:
 # ---------------------------------------------------------------------------
 # 第三方依赖
 # ---------------------------------------------------------------------------
-import tempfile
-import shutil
-from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from openai import OpenAI
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -105,33 +102,6 @@ class HealthResponse(BaseModel):
     status: str = Field("ok", description="服务运行状态")
 
 
-class ConfigSettings(BaseModel):
-    """配置设置（API Key 脱敏显示）。"""
-    llm_api_key: str = ""
-    embedding_api_key: str = ""
-    embedding_provider: str = "qwen"
-    serpapi_key: str = ""
-    llamaparse_api_key: str = ""
-    embedding_model: str = ""
-
-
-class UpdateConfigRequest(BaseModel):
-    """更新配置请求体（所有字段可选）。"""
-    llm_api_key: Optional[str] = None
-    embedding_api_key: Optional[str] = None
-    embedding_provider: Optional[str] = None
-    serpapi_key: Optional[str] = None
-    llamaparse_api_key: Optional[str] = None
-
-
-class PdfUploadResponse(BaseModel):
-    """PDF 上传响应体。"""
-    status: str
-    filename: str = ""
-    chunks: int = 0
-    message: str = ""
-
-
 # =============================================================================
 # Agent 单例 —— 惰性初始化，全局复用
 # =============================================================================
@@ -175,20 +145,6 @@ app.add_middleware(
 )
 
 # =============================================================================
-# 辅助函数
-# =============================================================================
-
-
-def _mask_api_key(key: str) -> str:
-    """脱敏 API Key 用于前端展示。"""
-    if not key or "your-" in key:
-        return ""
-    if len(key) <= 8:
-        return "***"
-    return key[:3] + "***" + key[-4:]
-
-
-# =============================================================================
 # REST API 端点
 # =============================================================================
 
@@ -201,86 +157,6 @@ async def health_check() -> HealthResponse:
         HealthResponse: 固定返回 {"status": "ok"}。
     """
     return HealthResponse(status="ok")
-
-
-@app.get("/api/config", response_model=ConfigSettings)
-async def get_config() -> ConfigSettings:
-    """获取当前配置（API Key 脱敏显示）。"""
-    return ConfigSettings(
-        llm_api_key=_mask_api_key(config.llm_api_key),
-        embedding_api_key=_mask_api_key(config.embedding_api_key),
-        embedding_provider=config.embedding_provider,
-        serpapi_key=_mask_api_key(config.serpapi_key),
-        llamaparse_api_key=_mask_api_key(config.llamaparse_api_key),
-        embedding_model=config.embedding_model,
-    )
-
-
-@app.put("/api/config")
-async def update_config(request: UpdateConfigRequest):
-    """运行时更新配置。仅更新传入的非空字段。"""
-    data = {k: v for k, v in request.model_dump().items() if v is not None}
-    if not data:
-        return {"status": "ok", "updated": []}
-
-    updated = config.update_from_dict(data)
-    agent = get_agent()
-
-    if "embedding_provider" in updated:
-        agent.rag_tool.embedding.switch_provider(config.embedding_provider)
-    if any(k in updated for k in ("llm_api_key",)):
-        new_client = OpenAI(
-            api_key=config.llm_api_key,
-            base_url=config.llm_api_url,
-        )
-        agent.llm_client = new_client
-        agent.rag_tool.llm_client = new_client
-        agent.planning.llm_client = new_client
-        agent.reflection.llm_client = new_client
-        agent.memory.llm_client = new_client
-
-    logger.info("配置已更新: %s", updated)
-    return {"status": "ok", "updated": updated}
-
-
-@app.post("/api/upload-pdf", response_model=PdfUploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
-    """上传 PDF 文件并索引到知识库。"""
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        return PdfUploadResponse(
-            status="error",
-            filename=file.filename or "",
-            message="仅支持 PDF 文件",
-        )
-
-    agent = get_agent()
-
-    # 保存到临时文件
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
-
-    try:
-        chunk_count = agent.index_knowledge_base(tmp_path)
-        logger.info("PDF 上传索引完成: %s -> %d 块", file.filename, chunk_count)
-        return PdfUploadResponse(
-            status="success",
-            filename=file.filename,
-            chunks=chunk_count,
-            message=f"已切分为 {chunk_count} 块，成功索引入库",
-        )
-    except Exception as exc:
-        logger.error("PDF 上传索引失败: %s", exc, exc_info=True)
-        return PdfUploadResponse(
-            status="error",
-            filename=file.filename,
-            message=str(exc),
-        )
-    finally:
-        try:
-            Path(tmp_path).unlink()
-        except OSError:
-            pass
 
 
 @app.post("/api/chat", response_model=ChatResponse)

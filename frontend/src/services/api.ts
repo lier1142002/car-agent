@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatResponse, AgentState, ConfigSettings, UpdateConfigPayload, PdfUploadResponse } from '../types';
+import type { ChatRequest, ChatResponse, AgentState } from '../types';
 
 const BASE = '/api';
 
@@ -38,28 +38,4 @@ export async function getAgentState(): Promise<AgentState> {
 
 export async function healthCheck(): Promise<{ status: string }> {
   return request('/health');
-}
-
-export async function getConfig(): Promise<ConfigSettings> {
-  return request<ConfigSettings>('/config');
-}
-
-export async function updateConfig(data: UpdateConfigPayload): Promise<{ status: string; updated: string[] }> {
-  return request('/config', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function uploadPdf(file: File): Promise<PdfUploadResponse> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const res = await fetch('/api/upload-pdf', {
-    method: 'POST',
-    body: formData,
-  });
-  if (!res.ok) {
-    throw new Error(`Upload failed: ${res.status}`);
-  }
-  return res.json();
 }

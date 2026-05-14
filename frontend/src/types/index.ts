@@ -100,30 +100,3 @@ export type AppAction =
   | { type: 'NEW_CONVERSATION' }
   | { type: 'SWITCH_CONVERSATION'; payload: string }
   | { type: 'CLEAR_MESSAGES' };
-
-/** 配置设置（API Key 脱敏显示） */
-export interface ConfigSettings {
-  llm_api_key: string;
-  embedding_api_key: string;
-  embedding_provider: 'qwen' | 'deepseek';
-  serpapi_key: string;
-  llamaparse_api_key: string;
-  embedding_model: string;
-}
-
-/** 更新配置请求体 */
-export interface UpdateConfigPayload {
-  llm_api_key?: string;
-  embedding_api_key?: string;
-  embedding_provider?: 'qwen' | 'deepseek';
-  serpapi_key?: string;
-  llamaparse_api_key?: string;
-}
-
-/** PDF 上传响应 */
-export interface PdfUploadResponse {
-  status: 'success' | 'error';
-  filename: string;
-  chunks: number;
-  message: string;
-}

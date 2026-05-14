@@ -59,31 +59,6 @@ class Config:
         default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-v3")
     )
     embedding_dim: int = 1024  # 千问 text-embedding-v3 输出维度
-    embedding_provider: str = field(
-        default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "qwen")
-    )  # "qwen" 或 "deepseek"
-
-    # =========================================================================
-    # DeepSeek Embedding 配置（OpenAI 兼容接口）
-    # =========================================================================
-    deepseek_api_key: str = field(
-        default_factory=lambda: os.getenv(
-            "DEEPSEEK_API_KEY",
-            "sk-your-deepseek-api-key-here",
-        )
-    )
-    deepseek_api_url: str = field(
-        default_factory=lambda: os.getenv(
-            "DEEPSEEK_API_URL",
-            "https://api.deepseek.com/v1",
-        )
-    )
-    deepseek_embedding_model: str = field(
-        default_factory=lambda: os.getenv(
-            "DEEPSEEK_EMBEDDING_MODEL",
-            "text-embedding-v1",
-        )
-    )
 
     # =========================================================================
     # Milvus 向量数据库配置
@@ -160,32 +135,6 @@ class Config:
                 logger.warning(w)
             return False
         return True
-
-    def update_from_dict(self, data: dict) -> list[str]:
-        """运行时部分更新配置（不持久化到文件）。
-
-        Args:
-            data: 包含要更新字段的字典，仅更新传入的 key。
-
-        Returns:
-            list[str]: 已更新的字段名列表。
-        """
-        import logging
-        logger = logging.getLogger(__name__)
-        allowed_keys = {
-            "llm_api_key", "llm_api_url", "llm_model",
-            "embedding_api_key", "embedding_api_url", "embedding_model",
-            "embedding_provider",
-            "deepseek_api_key", "deepseek_api_url", "deepseek_embedding_model",
-            "serpapi_key", "llamaparse_api_key",
-        }
-        updated: list[str] = []
-        for key, value in data.items():
-            if key in allowed_keys and hasattr(self, key):
-                setattr(self, key, value)
-                updated.append(key)
-                logger.info("配置更新: %s", key)
-        return updated
 
 
 # 全局配置单例

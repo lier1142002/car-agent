@@ -1,14 +1,13 @@
 """
 Embedding 客户端模块。
 
-支持多种 Embedding 提供商（千问、DeepSeek），
-通过工厂模式运行时切换，对上层调用者透明。
+通过阿里千问（或 OpenAI 兼容）Embedding API 生成文本向量，
+返回稠密向量和稀疏向量表示。
 """
 
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
 
 from openai import OpenAI
@@ -18,142 +17,108 @@ from config import config
 logger = logging.getLogger(__name__)
 
 
-class BaseEmbeddingProvider(ABC):
-    """Embedding 提供商的抽象基类。"""
+class EmbeddingClient:
+    """Embedding API 客户端。
 
-    @abstractmethod
-    def encode_text(self, text: str) -> Tuple[List[float], Dict[str, float]]:
-        """将文本编码为稠密向量和稀疏向量。"""
+    调用兼容 OpenAI 格式的 Embedding API 生成文本的稠密向量，
+    并通过 top-k 阈值转换模拟稀疏向量表示。
 
-    @abstractmethod
-    def encode_batch(
-        self, texts: List[str]
-    ) -> Tuple[List[List[float]], List[Dict[str, float]]]:
-        """批量编码文本。"""
-
-    @staticmethod
-    def _dense_to_sparse(
-        dense_vector: List[float], top_k: int = 50
-    ) -> Dict[str, float]:
-        """将稠密向量转换为稀疏表示（top-k 绝对值维度）。"""
-        indexed = [(i, abs(v)) for i, v in enumerate(dense_vector)]
-        indexed.sort(key=lambda x: x[1], reverse=True)
-        top_indices = indexed[:top_k]
-        return {str(idx): dense_vector[idx] for idx, _ in top_indices}
-
-
-class QwenEmbeddingProvider(BaseEmbeddingProvider):
-    """千问 Embedding API（text-embedding-v3）。"""
+    Attributes:
+        client: OpenAI 兼容客户端实例。
+        model: Embedding 模型名称。
+        dim: 输出稠密向量维度。
+    """
 
     def __init__(self) -> None:
+        """初始化 Embedding 客户端。
+
+        使用 config 中的 API 地址、密钥和模型名创建 OpenAI 兼容客户端。
+        """
         self.client = OpenAI(
             api_key=config.embedding_api_key,
             base_url=config.embedding_api_url,
         )
         self.model = config.embedding_model
         self.dim = config.embedding_dim
-        logger.info("千问 Embedding 已初始化: model=%s, dim=%d", self.model, self.dim)
-
-    def encode_text(self, text: str) -> Tuple[List[float], Dict[str, float]]:
-        try:
-            response = self.client.embeddings.create(
-                model=self.model, input=text
-            )
-            dense: List[float] = response.data[0].embedding
-            sparse = self._dense_to_sparse(dense)
-            return dense, sparse
-        except Exception as e:
-            logger.error("千问 Embedding 调用失败: %s", e)
-            raise RuntimeError(f"千问 Embedding 调用失败: {e}") from e
-
-    def encode_batch(
-        self, texts: List[str]
-    ) -> Tuple[List[List[float]], List[Dict[str, float]]]:
-        dense_list, sparse_list = [], []
-        for text in texts:
-            d, s = self.encode_text(text)
-            dense_list.append(d)
-            sparse_list.append(s)
-        logger.info("千问批量编码完成: %d 条", len(texts))
-        return dense_list, sparse_list
-
-
-class DeepSeekEmbeddingProvider(BaseEmbeddingProvider):
-    """DeepSeek Embedding API（OpenAI 兼容接口）。"""
-
-    def __init__(self) -> None:
-        api_key = config.deepseek_api_key or config.embedding_api_key
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url=config.deepseek_api_url,
-        )
-        self.model = config.deepseek_embedding_model
-        self.dim = 1536  # DeepSeek embedding 默认维度
-        logger.info("DeepSeek Embedding 已初始化: model=%s", self.model)
-
-    def encode_text(self, text: str) -> Tuple[List[float], Dict[str, float]]:
-        try:
-            response = self.client.embeddings.create(
-                model=self.model, input=text
-            )
-            dense: List[float] = response.data[0].embedding
-            sparse = self._dense_to_sparse(dense)
-            return dense, sparse
-        except Exception as e:
-            logger.error("DeepSeek Embedding 调用失败: %s", e)
-            raise RuntimeError(f"DeepSeek Embedding 调用失败: {e}") from e
-
-    def encode_batch(
-        self, texts: List[str]
-    ) -> Tuple[List[List[float]], List[Dict[str, float]]]:
-        dense_list, sparse_list = [], []
-        for text in texts:
-            d, s = self.encode_text(text)
-            dense_list.append(d)
-            sparse_list.append(s)
-        logger.info("DeepSeek 批量编码完成: %d 条", len(texts))
-        return dense_list, sparse_list
-
-
-class EmbeddingClient:
-    """Embedding 外观类。
-
-    根据 config.embedding_provider 动态选择底层提供商，
-    支持运行时通过 switch_provider() 切换。
-
-    Attributes:
-        provider: 当前激活的 Embedding 提供商实例。
-        provider_name: 当前提供商名称（"qwen" / "deepseek"）。
-    """
-
-    def __init__(self) -> None:
-        self.provider_name: str = ""
-        self.provider: BaseEmbeddingProvider = self._create_provider(
-            config.embedding_provider
+        logger.info(
+            "EmbeddingClient 已初始化: model=%s, dim=%d, url=%s",
+            self.model,
+            self.dim,
+            config.embedding_api_url,
         )
 
-    def _create_provider(self, name: str) -> BaseEmbeddingProvider:
-        """工厂方法：根据名称创建对应的 provider 实例。"""
-        self.provider_name = name
-        if name == "deepseek":
-            return DeepSeekEmbeddingProvider()
-        return QwenEmbeddingProvider()
+    def encode_text(self, text: str) -> Tuple[List[float], Dict[str, float]]:
+        """将文本编码为稠密向量和稀疏向量。
 
-    def switch_provider(self, name: str) -> None:
-        """运行时切换到指定提供商。
+        稠密向量直接来自 API 返回的 embedding。
+        稀疏向量通过稠密向量的 top-k 阈值转换模拟：
+        取绝对值最大的前 k 个维度及其值，其余视为零。
 
         Args:
-            name: "qwen" 或 "deepseek"。
-        """
-        if name == self.provider_name:
-            return
-        self.provider = self._create_provider(name)
-        logger.info("Embedding 提供商已切换为: %s", name)
+            text: 待编码的文本字符串。
 
-    def encode_text(self, text: str) -> Tuple[List[float], Dict[str, float]]:
-        return self.provider.encode_text(text)
+        Returns:
+            Tuple[List[float], Dict[str, float]]:
+                - dense_vector: 稠密向量（浮点列表）。
+                - sparse_dict: 稀疏向量字典，key 为维度索引（字符串），value 为权重。
+        """
+        try:
+            response = self.client.embeddings.create(
+                model=self.model,
+                input=text,
+            )
+            dense_vector: List[float] = response.data[0].embedding
+            logger.debug("成功生成稠密向量，维度=%d", len(dense_vector))
+
+            # 将稠密向量转换为稀疏表示：取绝对值 top-k 维度
+            sparse_dict = self._dense_to_sparse(dense_vector, top_k=50)
+
+            return dense_vector, sparse_dict
+
+        except Exception as e:
+            logger.error("Embedding API 调用失败: %s", e)
+            raise RuntimeError(f"Embedding API 调用失败: {e}") from e
 
     def encode_batch(
         self, texts: List[str]
     ) -> Tuple[List[List[float]], List[Dict[str, float]]]:
-        return self.provider.encode_batch(texts)
+        """批量编码文本。
+
+        Args:
+            texts: 文本字符串列表。
+
+        Returns:
+            Tuple: 包含稠密向量列表和稀疏向量字典列表。
+        """
+        dense_list: List[List[float]] = []
+        sparse_list: List[Dict[str, float]] = []
+
+        for text in texts:
+            dense, sparse = self.encode_text(text)
+            dense_list.append(dense)
+            sparse_list.append(sparse)
+
+        logger.info("批量编码完成: %d 条文本", len(texts))
+        return dense_list, sparse_list
+
+    @staticmethod
+    def _dense_to_sparse(
+        dense_vector: List[float], top_k: int = 50
+    ) -> Dict[str, float]:
+        """将稠密向量转换为稀疏表示。
+
+        通过选取绝对值最大的 top_k 个维度来实现。
+
+        Args:
+            dense_vector: 稠密向量（浮点列表）。
+            top_k: 保留的维度数量。
+
+        Returns:
+            Dict[str, float]: key 为维度索引字符串，value 为权重。
+        """
+        # 获取绝对值最大的 top_k 个维度的索引
+        indexed = [(i, abs(v)) for i, v in enumerate(dense_vector)]
+        indexed.sort(key=lambda x: x[1], reverse=True)
+        top_indices = indexed[:top_k]
+
+        return {str(idx): dense_vector[idx] for idx, _ in top_indices}

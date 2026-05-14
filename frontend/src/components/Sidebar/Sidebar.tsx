@@ -1,16 +1,11 @@
 import React from 'react';
-import { SettingOutlined } from '@ant-design/icons';
 import { KnowledgeStatus } from './KnowledgeStatus';
 import { ToolStatus } from './ToolStatus';
 import { ConversationList } from './ConversationList';
 import { useApp } from '../../store/AppContext';
 import styles from '../../styles/Sidebar.module.css';
 
-interface SidebarProps {
-  onOpenSettings: () => void;
-}
-
-export const Sidebar: React.FC<SidebarProps> = ({ onOpenSettings }) => {
+export const Sidebar: React.FC = () => {
   const { startNewConversation } = useApp();
 
   return (
@@ -23,9 +18,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenSettings }) => {
       <ConversationList />
       <div className={styles.newConvBtn} onClick={startNewConversation}>
         + 新建对话
-      </div>
-      <div className={styles.settingsBtn} onClick={onOpenSettings}>
-        <SettingOutlined /> 设置
       </div>
     </div>
   );
