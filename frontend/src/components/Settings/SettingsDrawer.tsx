@@ -4,6 +4,7 @@ import { SettingOutlined } from '@ant-design/icons';
 import { ApiKeyForm } from './ApiKeyForm';
 import { EmbeddingSelector } from './EmbeddingSelector';
 import { PdfUploader } from './PdfUploader';
+import { LlmConfigForm } from './LlmConfigForm';
 import { getConfig, updateConfig, uploadPdf } from '../../services/api';
 import { useApp } from '../../store/AppContext';
 import type { ConfigSettings, UpdateConfigPayload } from '../../types';
@@ -53,6 +54,12 @@ export const SettingsDrawer: React.FC<Props> = ({ open, onClose }) => {
     }
   };
 
+  const handleLlmSaved = async () => {
+    const newConfig = await getConfig();
+    setConfig(newConfig);
+    refreshAgentState();
+  };
+
   const handlePdfUpload = async (file: File) => {
     try {
       const result = await uploadPdf(file);
@@ -79,8 +86,18 @@ export const SettingsDrawer: React.FC<Props> = ({ open, onClose }) => {
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>Embedding 模型</h4>
         <EmbeddingSelector
-          value={config?.embedding_provider ?? 'qwen'}
+          value={config?.embedding_provider ?? 'deepseek'}
           onChange={handleEmbeddingChange}
+        />
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <h4 className={styles.sectionTitle}>LLM 配置</h4>
+        <LlmConfigForm
+          config={config}
+          onSaved={handleLlmSaved}
         />
       </div>
 
