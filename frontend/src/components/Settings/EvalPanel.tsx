@@ -1,27 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Drawer, Select, Radio, InputNumber, Switch, Button, message, Collapse, Typography, Descriptions, Tag } from 'antd';
+import { Drawer, Select, Radio, InputNumber, Switch, Button, message, Tabs, Typography, Tag } from 'antd';
 import { ExperimentOutlined } from '@ant-design/icons';
 import { getDatasets, runEval } from '../../services/api';
 import type { DatasetSummary, EvalRunResponse } from '../../types';
+import { EvalOverviewTab } from './EvalOverviewTab';
+import { EvalPerSampleTab } from './EvalPerSampleTab';
+import { EvalSweepTab } from './EvalSweepTab';
 import styles from '../../styles/Settings.module.css';
 
 const { Text } = Typography;
-const { Panel } = Collapse;
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
-
-const METRIC_LABELS: Record<string, string> = {
-  context_relevance: 'Context Relevance',
-  context_recall: 'Context Recall',
-  mrr: 'MRR',
-  ndcg: 'NDCG',
-  faithfulness: 'Faithfulness',
-  hallucination_rate: 'Hallucination Rate',
-  answer_relevance: 'Answer Relevance',
-};
 
 export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
@@ -31,6 +23,7 @@ export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
   const [generateAnswers, setGenerateAnswers] = useState(true);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<EvalRunResponse | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     if (open) {
@@ -38,6 +31,7 @@ export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
         .then(setDatasets)
         .catch(() => message.error('获取数据集列表失败'));
       setResult(null);
+      setActiveTab('overview');
     }
   }, [open]);
 
@@ -58,6 +52,7 @@ export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
         generate_answers: generateAnswers,
       });
       setResult(res);
+      setActiveTab('overview');
       message.success('评测完成');
     } catch {
       message.error('评测运行失败');
@@ -66,25 +61,11 @@ export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
     }
   };
 
-  const renderMetricBar = (value: number) => {
-    const pct = Math.max(0, Math.min(1, value));
-    const width = Math.round(pct * 100);
-    const color = pct >= 0.8 ? '#3fb950' : pct >= 0.6 ? '#d29922' : '#f85149';
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, width: '100%' }}>
-        <span style={{ flex: 1, height: 6, background: '#21262d', borderRadius: 3, overflow: 'hidden' }}>
-          <span style={{ display: 'block', width: `${width}%`, height: '100%', background: color, borderRadius: 3 }} />
-        </span>
-        <span style={{ color, fontWeight: 600, minWidth: 48, textAlign: 'right' }}>{(value * 100).toFixed(1)}%</span>
-      </span>
-    );
-  };
-
   return (
     <Drawer
       title={<><ExperimentOutlined /> RAG 评测</>}
       placement="right"
-      width={480}
+      width={540}
       open={open}
       onClose={onClose}
       className={styles.drawer}
@@ -172,117 +153,39 @@ export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
         {running ? '评测中...' : '运行评测'}
       </Button>
 
-      {/* 结果展示 */}
+      {/* 结果区 —— Tab 布局 */}
       {result && (
         <>
           <div className={styles.divider} />
-
-          <div className={styles.section}>
-            <h4 className={styles.sectionTitle}>检索质量</h4>
-            {Object.entries(result.retrieval_quality).map(([key, val]) => (
-              <div key={key} className={styles.formItem} style={{ marginBottom: 8 }}>
-                <label className={styles.label}>{METRIC_LABELS[key] || key}</label>
-                {renderMetricBar(val)}
-              </div>
-            ))}
-          </div>
-
-          {generateAnswers && result.generation_quality && (
-            <>
-              <div className={styles.divider} />
-              <div className={styles.section}>
-                <h4 className={styles.sectionTitle}>生成质量</h4>
-                {Object.entries(result.generation_quality).map(([key, val]) => (
-                  <div key={key} className={styles.formItem} style={{ marginBottom: 8 }}>
-                    <label className={styles.label}>{METRIC_LABELS[key] || key}</label>
-                    {renderMetricBar(val)}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          <div className={styles.divider} />
-          <div className={styles.section}>
-            <h4 className={styles.sectionTitle}>性能</h4>
-            <Descriptions size="small" column={2} colon={false}>
-              <Descriptions.Item label="检索延迟 (avg)">
-                {result.performance.avg_retrieval_latency_ms.toFixed(1)} ms
-              </Descriptions.Item>
-              <Descriptions.Item label="检索延迟 (P95)">
-                {result.performance.p95_retrieval_latency_ms.toFixed(1)} ms
-              </Descriptions.Item>
-              {generateAnswers && (
-                <>
-                  <Descriptions.Item label="生成延迟 (avg)">
-                    {result.performance.avg_generation_latency_ms.toFixed(1)} ms
-                  </Descriptions.Item>
-                  <Descriptions.Item label="生成延迟 (P95)">
-                    {result.performance.p95_generation_latency_ms.toFixed(1)} ms
-                  </Descriptions.Item>
-                </>
-              )}
-            </Descriptions>
-          </div>
-
-          {result.failed_samples.length > 0 && (
-            <>
-              <div className={styles.divider} />
-              <div className={styles.section}>
-                <h4 className={styles.sectionTitle}>失败样本 ({result.failed_samples.length})</h4>
-                {result.failed_samples.map((q, i) => (
-                  <Text key={i} type="danger" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                    {q}
-                  </Text>
-                ))}
-              </div>
-            </>
-          )}
-
-          <div className={styles.divider} />
-          <div className={styles.section}>
-            <h4 className={styles.sectionTitle}>逐样本明细 ({result.per_sample.length} 条)</h4>
-            <Collapse size="small" ghost>
-              {result.per_sample.map((s, i) => (
-                <Panel
-                  key={i}
-                  header={
-                    <Text ellipsis style={{ fontSize: 12, maxWidth: 380 }}>
-                      {s.query}
-                    </Text>
-                  }
-                >
-                  <Descriptions size="small" column={2} colon={false}>
-                    <Descriptions.Item label="Context Relevance">{s.context_relevance.toFixed(3)}</Descriptions.Item>
-                    <Descriptions.Item label="Context Recall">{s.context_recall.toFixed(3)}</Descriptions.Item>
-                    <Descriptions.Item label="Faithfulness">{s.faithfulness.toFixed(3)}</Descriptions.Item>
-                    <Descriptions.Item label="Answer Relevance">{s.answer_relevance.toFixed(3)}</Descriptions.Item>
-                    <Descriptions.Item label="MRR">{s.mrr.toFixed(3)}</Descriptions.Item>
-                    <Descriptions.Item label="NDCG">{s.ndcg.toFixed(3)}</Descriptions.Item>
-                    <Descriptions.Item label="Latency">{s.retrieval_latency_ms.toFixed(0)}ms</Descriptions.Item>
-                    <Descriptions.Item label="Hallucination">{(s.hallucination_rate * 100).toFixed(1)}%</Descriptions.Item>
-                  </Descriptions>
-                  {s.ground_truth && (
-                    <div style={{ marginTop: 8 }}>
-                      <Text strong style={{ fontSize: 12 }}>标准答案:</Text>
-                      <Text style={{ fontSize: 12, display: 'block', marginTop: 4, padding: 8, background: '#161b22', borderRadius: 4 }}>
-                        {s.ground_truth}
-                      </Text>
-                    </div>
-                  )}
-                  {s.generated_answer && (
-                    <div style={{ marginTop: 8 }}>
-                      <Text strong style={{ fontSize: 12 }}>生成的回答:</Text>
-                      <Text style={{ fontSize: 12, display: 'block', marginTop: 4, padding: 8, background: '#161b22', borderRadius: 4 }}>
-                        {s.generated_answer}
-                      </Text>
-                    </div>
-                  )}
-                </Panel>
-              ))}
-            </Collapse>
-          </div>
+          <Tabs
+            activeKey={activeTab}
+            onChange={setActiveTab}
+            size="small"
+            items={[
+              {
+                key: 'overview',
+                label: '总览',
+                children: <EvalOverviewTab result={result} generateAnswers={generateAnswers} />,
+              },
+              {
+                key: 'persample',
+                label: `逐样本 (${result.per_sample.length})`,
+                children: <EvalPerSampleTab result={result} />,
+              },
+              {
+                key: 'sweep',
+                label: '权重扫描',
+                children: <EvalSweepTab datasetName={selectedDataset} topK={topK} />,
+              },
+            ]}
+          />
         </>
+      )}
+
+      {!result && !running && (
+        <div style={{ textAlign: 'center', marginTop: 24, color: '#8b949e', fontSize: 13 }}>
+          选择数据集后点击 "运行评测"
+        </div>
       )}
     </Drawer>
   );

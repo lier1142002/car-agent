@@ -61,10 +61,7 @@ export const EvalPerSampleTab: React.FC<Props> = ({ result }) => {
             <ZAxis range={[60, 60]} />
             <Tooltip
               contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 4 }}
-              formatter={(val: number, name: string) => [
-                (val * 100).toFixed(1) + '%',
-                name === 'x' ? 'Context Relevance' : 'Faithfulness',
-              ]}
+              formatter={(val: any) => [(Number(val) * 100).toFixed(1) + '%', '']}
             />
             <Legend />
             <Scatter name="easy" data={easyData} fill={DIFFICULTY_COLORS.easy} />
