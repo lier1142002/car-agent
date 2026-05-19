@@ -135,3 +135,62 @@ export interface PdfUploadResponse {
   chunks: number;
   message: string;
 }
+
+/** 数据集摘要 */
+export interface DatasetSummary {
+  name: string;
+  total_samples: number;
+  by_type: Record<string, number>;
+  by_difficulty: Record<string, number>;
+}
+
+/** 评测运行请求 */
+export interface EvalRunRequest {
+  dataset_name: string;
+  retrieval_mode: 'dense' | 'sparse' | 'hybrid';
+  top_k: number;
+  generate_answers: boolean;
+}
+
+/** 单条样本评测结果 */
+export interface EvalSampleResult {
+  query: string;
+  ground_truth: string;
+  context_relevance: number;
+  context_recall: number;
+  mrr: number;
+  ndcg: number;
+  faithfulness: number;
+  hallucination_rate: number;
+  answer_relevance: number;
+  generated_answer: string;
+  retrieval_latency_ms: number;
+  generation_latency_ms: number;
+}
+
+/** 评测运行响应 */
+export interface EvalRunResponse {
+  dataset_name: string;
+  total_samples: number;
+  retrieval_mode: string;
+  config: Record<string, unknown>;
+  retrieval_quality: {
+    context_relevance: number;
+    context_recall: number;
+    mrr: number;
+    ndcg: number;
+  };
+  generation_quality: {
+    faithfulness: number;
+    hallucination_rate: number;
+    answer_relevance: number;
+  };
+  performance: {
+    avg_retrieval_latency_ms: number;
+    avg_generation_latency_ms: number;
+    p95_retrieval_latency_ms: number;
+    p95_generation_latency_ms: number;
+  };
+  per_sample: EvalSampleResult[];
+  failed_samples: string[];
+}
