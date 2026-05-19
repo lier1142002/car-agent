@@ -128,8 +128,8 @@ class UpdateConfigRequest(BaseModel):
     llamaparse_api_key: Optional[str] = None
     llm_model: Optional[str] = None
     llm_api_url: Optional[str] = None
-    llm_temperature: Optional[float] = None
-    llm_max_tokens: Optional[int] = None
+    llm_temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
+    llm_max_tokens: Optional[int] = Field(None, ge=1, le=32768)
 
 
 class PdfUploadResponse(BaseModel):
