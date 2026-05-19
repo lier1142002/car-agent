@@ -194,3 +194,10 @@ export interface EvalRunResponse {
   per_sample: EvalSampleResult[];
   failed_samples: string[];
 }
+
+/** 权重扫描请求 */
+export interface WeightSweepRequest {
+  dataset_name: string;
+  top_k: number;
+  generate_answers: boolean;
+}

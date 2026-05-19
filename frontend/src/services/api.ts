@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatResponse, AgentState, ConfigSettings, UpdateConfigPayload, PdfUploadResponse, DatasetSummary, EvalRunRequest, EvalRunResponse } from '../types';
+import type { ChatRequest, ChatResponse, AgentState, ConfigSettings, UpdateConfigPayload, PdfUploadResponse, DatasetSummary, EvalRunRequest, EvalRunResponse, WeightSweepRequest } from '../types';
 
 const BASE = '/api';
 
@@ -70,6 +70,13 @@ export async function getDatasets(): Promise<DatasetSummary[]> {
 
 export async function runEval(data: EvalRunRequest): Promise<EvalRunResponse> {
   return request<EvalRunResponse>('/eval/run', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function runSweep(data: WeightSweepRequest): Promise<EvalRunResponse[]> {
+  return request<EvalRunResponse[]>('/eval/sweep', {
     method: 'POST',
     body: JSON.stringify(data),
   });
