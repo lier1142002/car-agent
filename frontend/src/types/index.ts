@@ -105,7 +105,7 @@ export type AppAction =
 export interface ConfigSettings {
   llm_api_key: string;
   embedding_api_key: string;
-  embedding_provider: 'qwen' | 'deepseek';
+  embedding_provider: 'local' | 'qwen' | 'deepseek';
   serpapi_key: string;
   llamaparse_api_key: string;
   embedding_model: string;
@@ -119,7 +119,7 @@ export interface ConfigSettings {
 export interface UpdateConfigPayload {
   llm_api_key?: string;
   embedding_api_key?: string;
-  embedding_provider?: 'qwen' | 'deepseek';
+  embedding_provider?: 'local' | 'qwen' | 'deepseek';
   serpapi_key?: string;
   llamaparse_api_key?: string;
   llm_model?: string;

@@ -41,7 +41,7 @@ class Config:
     llm_max_tokens: int = 2048
 
     # =========================================================================
-    # Embedding API 配置（DeepSeek Embedding / OpenAI 兼容接口）
+    # Embedding 配置（默认本地 BGE-M3，也支持远程 API）
     # =========================================================================
     embedding_api_url: str = field(
         default_factory=lambda: os.getenv(
@@ -58,10 +58,21 @@ class Config:
     embedding_model: str = field(
         default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-v1")
     )
-    embedding_dim: int = 1024 # DeepSeek Embedding 输出维度
+    embedding_dim: int = 1024  # BGE-M3 输出维度
     embedding_provider: str = field(
-        default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "deepseek")
-    )  # "deepseek" 或 "qwen"
+        default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "local")
+    )  # "local" / "deepseek" / "qwen"
+
+    # =========================================================================
+    # 本地 Embedding 配置（BGE-M3 via sentence-transformers）
+    # =========================================================================
+    local_embedding_model: str = field(
+        default_factory=lambda: os.getenv("LOCAL_EMBEDDING_MODEL", "BAAI/bge-m3")
+    )
+    local_embedding_dim: int = 1024
+    local_embedding_device: str = field(
+        default_factory=lambda: os.getenv("LOCAL_EMBEDDING_DEVICE", "cpu")
+    )  # "cpu" / "cuda" / "mps"
 
     # =========================================================================
     # DeepSeek Embedding 配置（OpenAI 兼容接口）

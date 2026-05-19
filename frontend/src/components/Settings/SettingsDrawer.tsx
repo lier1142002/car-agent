@@ -42,10 +42,11 @@ export const SettingsDrawer: React.FC<Props> = ({ open, onClose }) => {
     }
   };
 
-  const handleEmbeddingChange = async (provider: 'qwen' | 'deepseek') => {
+  const handleEmbeddingChange = async (provider: 'local' | 'qwen' | 'deepseek') => {
     try {
       await updateConfig({ embedding_provider: provider });
-      message.success(`Embedding 已切换为 ${provider === 'qwen' ? '千问' : 'DeepSeek'}`);
+      const nameMap: Record<string, string> = { local: '本地 BGE-M3', qwen: '千问', deepseek: 'DeepSeek' };
+      message.success(`Embedding 已切换为 ${nameMap[provider] || provider}`);
       const newConfig = await getConfig();
       setConfig(newConfig);
       refreshAgentState();
@@ -86,7 +87,7 @@ export const SettingsDrawer: React.FC<Props> = ({ open, onClose }) => {
       <div className={styles.section}>
         <h4 className={styles.sectionTitle}>Embedding 模型</h4>
         <EmbeddingSelector
-          value={config?.embedding_provider ?? 'deepseek'}
+          value={config?.embedding_provider ?? 'local'}
           onChange={handleEmbeddingChange}
         />
       </div>

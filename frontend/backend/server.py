@@ -109,7 +109,7 @@ class ConfigSettings(BaseModel):
     """配置设置（API Key 脱敏显示）。"""
     llm_api_key: str = ""
     embedding_api_key: str = ""
-    embedding_provider: str = "deepseek"
+    embedding_provider: str = "local"
     serpapi_key: str = ""
     llamaparse_api_key: str = ""
     embedding_model: str = ""

@@ -1,7 +1,7 @@
 """
 Embedding 客户端模块。
 
-支持多种 Embedding 提供商（千问、DeepSeek），
+支持多种 Embedding 提供商（本地 BGE-M3、千问、DeepSeek），
 通过工厂模式运行时切换，对上层调用者透明。
 """
 
@@ -11,6 +11,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
 
+import numpy as np
 from openai import OpenAI
 
 from config import config
@@ -117,6 +118,56 @@ class DeepSeekEmbeddingProvider(BaseEmbeddingProvider):
         return dense_list, sparse_list
 
 
+class LocalEmbeddingProvider(BaseEmbeddingProvider):
+    """本地 BGE-M3 Embedding 模型（via sentence-transformers）。
+
+    首次初始化会自动下载模型（~2GB），后续使用缓存。
+    BGE-M3 输出 1024 维稠密向量，支持稀疏词汇权重。
+    """
+
+    def __init__(self) -> None:
+        from sentence_transformers import SentenceTransformer
+
+        self._st_model = SentenceTransformer(
+            config.local_embedding_model,
+            device=config.local_embedding_device,
+        )
+        self.dim = config.local_embedding_dim
+        logger.info(
+            "本地 BGE-M3 Embedding 已初始化: model=%s, dim=%d, device=%s",
+            config.local_embedding_model,
+            self.dim,
+            config.local_embedding_device,
+        )
+
+    def encode_text(self, text: str) -> Tuple[List[float], Dict[str, float]]:
+        try:
+            # BGE-M3 返回 normalize 后的稠密向量
+            dense: List[float] = self._st_model.encode(
+                text, normalize_embeddings=True
+            ).tolist()
+            sparse = self._dense_to_sparse(dense)
+            return dense, sparse
+        except Exception as e:
+            logger.error("BGE-M3 Embedding 调用失败: %s", e)
+            raise RuntimeError(f"BGE-M3 Embedding 调用失败: {e}") from e
+
+    def encode_batch(
+        self, texts: List[str]
+    ) -> Tuple[List[List[float]], List[Dict[str, float]]]:
+        try:
+            dense_all: np.ndarray = self._st_model.encode(
+                texts, normalize_embeddings=True, show_progress_bar=False
+            )
+            dense_list: List[List[float]] = dense_all.tolist()
+            sparse_list = [self._dense_to_sparse(d) for d in dense_list]
+            logger.info("BGE-M3 批量编码完成: %d 条", len(texts))
+            return dense_list, sparse_list
+        except Exception as e:
+            logger.error("BGE-M3 批量编码失败: %s", e)
+            raise RuntimeError(f"BGE-M3 批量编码失败: {e}") from e
+
+
 class EmbeddingClient:
     """Embedding 外观类。
 
@@ -125,7 +176,7 @@ class EmbeddingClient:
 
     Attributes:
         provider: 当前激活的 Embedding 提供商实例。
-        provider_name: 当前提供商名称（"qwen" / "deepseek"）。
+        provider_name: 当前提供商名称（"local" / "qwen" / "deepseek"）。
     """
 
     def __init__(self) -> None:
@@ -139,13 +190,17 @@ class EmbeddingClient:
         self.provider_name = name
         if name == "qwen":
             return QwenEmbeddingProvider()
-        return DeepSeekEmbeddingProvider()
+        if name == "deepseek":
+            return DeepSeekEmbeddingProvider()
+        if name == "local":
+            return LocalEmbeddingProvider()
+        return LocalEmbeddingProvider()
 
     def switch_provider(self, name: str) -> None:
         """运行时切换到指定提供商。
 
         Args:
-            name: "qwen" 或 "deepseek"。
+            name: "local" / "qwen" / "deepseek"。
         """
         if name == self.provider_name:
             return
