@@ -94,7 +94,7 @@ export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
         <h4 className={styles.sectionTitle}>评测数据集</h4>
         <Select
           value={selectedDataset}
-          onChange={setSelectedDataset}
+          onChange={(val) => { setSelectedDataset(val); setResult(null); }}
           placeholder="选择数据集"
           options={datasets.map(d => ({
             value: d.name,
@@ -212,7 +212,7 @@ export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
               <Descriptions.Item label="检索延迟 (P95)">
                 {result.performance.p95_retrieval_latency_ms.toFixed(1)} ms
               </Descriptions.Item>
-              {result.performance.avg_generation_latency_ms > 0 && (
+              {generateAnswers && (
                 <>
                   <Descriptions.Item label="生成延迟 (avg)">
                     {result.performance.avg_generation_latency_ms.toFixed(1)} ms
@@ -257,9 +257,19 @@ export const EvalPanel: React.FC<Props> = ({ open, onClose }) => {
                     <Descriptions.Item label="Context Recall">{s.context_recall.toFixed(3)}</Descriptions.Item>
                     <Descriptions.Item label="Faithfulness">{s.faithfulness.toFixed(3)}</Descriptions.Item>
                     <Descriptions.Item label="Answer Relevance">{s.answer_relevance.toFixed(3)}</Descriptions.Item>
+                    <Descriptions.Item label="MRR">{s.mrr.toFixed(3)}</Descriptions.Item>
+                    <Descriptions.Item label="NDCG">{s.ndcg.toFixed(3)}</Descriptions.Item>
                     <Descriptions.Item label="Latency">{s.retrieval_latency_ms.toFixed(0)}ms</Descriptions.Item>
                     <Descriptions.Item label="Hallucination">{(s.hallucination_rate * 100).toFixed(1)}%</Descriptions.Item>
                   </Descriptions>
+                  {s.ground_truth && (
+                    <div style={{ marginTop: 8 }}>
+                      <Text strong style={{ fontSize: 12 }}>标准答案:</Text>
+                      <Text style={{ fontSize: 12, display: 'block', marginTop: 4, padding: 8, background: '#161b22', borderRadius: 4 }}>
+                        {s.ground_truth}
+                      </Text>
+                    </div>
+                  )}
                   {s.generated_answer && (
                     <div style={{ marginTop: 8 }}>
                       <Text strong style={{ fontSize: 12 }}>生成的回答:</Text>
