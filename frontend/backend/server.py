@@ -256,6 +256,9 @@ async def update_config(request: UpdateConfigRequest):
 
     if "embedding_provider" in updated:
         agent.rag_tool.embedding.switch_provider(config.embedding_provider)
+    if any(k in updated for k in ("embedding_api_key", "embedding_api_url", "embedding_model",
+                                   "deepseek_api_key", "deepseek_api_url", "deepseek_embedding_model")):
+        agent.rag_tool.embedding.switch_provider(config.embedding_provider)
     if any(k in updated for k in ("llm_api_key", "llm_api_url", "llm_model")):
         new_client = OpenAI(
             api_key=config.llm_api_key,

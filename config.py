@@ -58,7 +58,7 @@ class Config:
     embedding_model: str = field(
         default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-v1")
     )
-    embedding_dim: int = 1536  # DeepSeek Embedding 输出维度
+    embedding_dim: int = 1024 # DeepSeek Embedding 输出维度
     embedding_provider: str = field(
         default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "deepseek")
     )  # "deepseek" 或 "qwen"
@@ -81,7 +81,7 @@ class Config:
     deepseek_embedding_model: str = field(
         default_factory=lambda: os.getenv(
             "DEEPSEEK_EMBEDDING_MODEL",
-            "text-embedding-v1",
+            "deepseek-embed",
         )
     )
 
