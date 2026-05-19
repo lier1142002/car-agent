@@ -20,48 +20,48 @@ class Config:
     """
 
     # =========================================================================
-    # LLM API 配置（阿里千问 / OpenAI 兼容接口）
+    # LLM API 配置（DeepSeek / OpenAI 兼容接口）
     # =========================================================================
     llm_api_url: str = field(
         default_factory=lambda: os.getenv(
             "LLM_API_URL",
-            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "https://api.deepseek.com/v1",
         )
     )
     llm_api_key: str = field(
         default_factory=lambda: os.getenv(
             "LLM_API_KEY",
-            "sk-80ba4c1f4c774ab7afcf4275a294f125",  # 替换为你的千问 API Key
+            "sk-your-deepseek-api-key-here",  # 替换为你的 DeepSeek API Key
         )
     )
     llm_model: str = field(
-        default_factory=lambda: os.getenv("LLM_MODEL", "qwen-plus")
+        default_factory=lambda: os.getenv("LLM_MODEL", "deepseek-chat")
     )
     llm_temperature: float = 0.1
     llm_max_tokens: int = 2048
 
     # =========================================================================
-    # Embedding API 配置（阿里千问 embedding / OpenAI 兼容接口）
+    # Embedding API 配置（DeepSeek Embedding / OpenAI 兼容接口）
     # =========================================================================
     embedding_api_url: str = field(
         default_factory=lambda: os.getenv(
             "EMBEDDING_API_URL",
-            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "https://api.deepseek.com/v1",
         )
     )
     embedding_api_key: str = field(
         default_factory=lambda: os.getenv(
             "EMBEDDING_API_KEY",
-            "sk-80ba4c1f4c774ab7afcf4275a294f125",  # 替换为你的千问 API Key
+            "sk-your-deepseek-api-key-here",  # 替换为你的 DeepSeek API Key
         )
     )
     embedding_model: str = field(
-        default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-v3")
+        default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-v1")
     )
-    embedding_dim: int = 1024  # 千问 text-embedding-v3 输出维度
+    embedding_dim: int = 1536  # DeepSeek Embedding 输出维度
     embedding_provider: str = field(
-        default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "qwen")
-    )  # "qwen" 或 "deepseek"
+        default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "deepseek")
+    )  # "deepseek" 或 "qwen"
 
     # =========================================================================
     # DeepSeek Embedding 配置（OpenAI 兼容接口）
@@ -69,7 +69,7 @@ class Config:
     deepseek_api_key: str = field(
         default_factory=lambda: os.getenv(
             "DEEPSEEK_API_KEY",
-            "sk-your-deepseek-api-key-here",
+            "sk-your-deepseek-api-key-here",  # 替换为你的 DeepSeek API Key
         )
     )
     deepseek_api_url: str = field(
@@ -147,8 +147,8 @@ class Config:
             bool: 关键配置均非占位符时返回 True。
         """
         warnings: list[str] = []
-        if "your-qwen-api-key" in self.llm_api_key:
-            warnings.append("LLM_API_KEY 仍为占位符，请替换为真实 API Key")
+        if "your-deepseek-api-key" in self.llm_api_key:
+            warnings.append("LLM_API_KEY 仍为占位符，请替换为真实 DeepSeek API Key")
         if "your-serpapi-key" in self.serpapi_key:
             warnings.append("SERPAPI_API_KEY 仍为占位符")
         if "your-llamaparse-key" in self.llamaparse_api_key:
@@ -174,6 +174,7 @@ class Config:
         logger = logging.getLogger(__name__)
         allowed_keys = {
             "llm_api_key", "llm_api_url", "llm_model",
+            "llm_temperature", "llm_max_tokens",
             "embedding_api_key", "embedding_api_url", "embedding_model",
             "embedding_provider",
             "deepseek_api_key", "deepseek_api_url", "deepseek_embedding_model",
