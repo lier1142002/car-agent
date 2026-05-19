@@ -82,6 +82,15 @@ AutoSalesAgent/
 │   ├── reflection_prompt.txt          # 反思评估提示词
 │   └── rag_prompt.txt                 # RAG 回答生成模板
 │
+├── eval/                              # RAG 评测模块
+│   ├── metrics.py                     # 6 项评测指标（检索+生成质量）
+│   ├── dataset.py                     # Golden Dataset 构建与自动生成
+│   ├── runner.py                      # 批量评测运行器（含权重扫描）
+│   ├── report.py                      # 结果报告输出（JSON/CSV/CLI Table）
+│   ├── prompts.py                     # LLM-as-a-Judge 评测提示词模板
+│   └── datasets/                      # 评测数据集存放
+│       └── auto_sales_eval_v1.0.json  # 示例：10 条汽车销售评测 QA
+│
 ├── data/                              # 产品文档存放
 │   └── product.pdf                    # 示例产品手册
 │
@@ -122,7 +131,7 @@ AutoSalesAgent/
 
 ## 技术栈
 
-### 后端 (Python ~3700 行)
+### 后端 (Python ~4400 行)
 
 | 组件 | 技术 | 说明 |
 |------|------|------|
@@ -298,6 +307,7 @@ npm run dev                          # http://localhost:3000
 | 向量数据库 | `infrastructure/vector_db.py` | 343 | Milvus 连接管理、混合检索(WeightedRanker) |
 | 文档解析 | `infrastructure/doc_parser.py` | 218 | LlamaParse 解析 + 4级智能切块策略 |
 | RAG 工具 | `tools/rag_tool.py` | 235 | 文档索引、混合检索、LLM 回答生成 |
+| 评测模块 | `eval/` | ~730 | 检索/生成质量指标、数据集生成、批量评测运行器 |
 | 规划模块 | `agent/planning.py` | 174 | LLM 生成 JSON ActionList + 意图分类 |
 | 记忆模块 | `agent/memory.py` | 192 | 短期记忆列表 + LLM 压缩(阈值2000字符) |
 | 执行器 | `agent/executor.py` | 151 | 工具注册表 + deque 任务队列调度 |
@@ -318,6 +328,67 @@ npm run dev                          # http://localhost:3000
 | PdfUploader | `Settings/PdfUploader.tsx` | PDF 拖拽上传 + 进度条 + 结果提示 |
 
 ---
+
+## RAG 评测
+
+`eval/` 模块提供完整的本地 RAG 评测方案，用于量化评估和优化检索与生成质量，无需外部服务。
+
+### 评测指标体系
+
+| 维度 | 指标 | 计算方式 | 范围 |
+|------|------|---------|------|
+| 检索 | Context Relevance | LLM 逐块判断检索内容与 query 的相关性 | [0, 1] |
+| 检索 | Context Recall | 标注正样本中被检索到的比例（Jaccard 模糊匹配） | [0, 1] |
+| 检索 | MRR | 第一个相关文档排名倒数的均值 | [0, 1] |
+| 检索 | NDCG@k | 归一化折损累计增益（二值标签） | [0, 1] |
+| 生成 | Faithfulness | 提取 claims → LLM 蕴含判断 → supported/total | [0, 1] |
+| 生成 | Hallucination Rate | 1 - Faithfulness，即无法验证的 claims 占比 | [0, 1] |
+| 生成 | Answer Relevance | LLM 对回答-问题相关度 1-5 评分后归一化 | [0, 1] |
+
+### 使用方式
+
+```python
+from tools.rag_tool import RAGTool
+from eval.dataset import GoldenDataset
+from eval.runner import EvalRunner
+from eval.report import print_report_table, save_report_json
+
+# 1. 初始化并索引知识库
+rag = RAGTool()
+rag.index_documents("data/product.pdf")
+
+# 2. 加载评测数据集
+ds = GoldenDataset.load("eval/datasets/auto_sales_eval_v1.0.json")
+
+# 3. 运行评测
+runner = EvalRunner(rag, top_k=5)
+report = runner.run(ds, retrieval_mode="hybrid", generate_answers=True)
+
+# 4. 查看结果
+print_report_table(report)       # CLI 表格 + 进度条
+save_report_json(report)         # 完整 JSON（含 claims 级细节）
+save_report_csv(report, include_details=True)  # Excel 兼容 CSV
+
+# 5. 混合检索权重调优
+reports = runner.sweep_weights(ds)
+print_weight_sweep_table(reports)  # 多组权重并排对比
+```
+
+### 数据集构建
+
+支持三种方式构建评测集：
+
+1. **自动生成**：`DatasetGenerator` 基于 PDF 文本块调用 LLM 自动生成事实查询/对比分析/销售场景三类 QA 对
+2. **手工标注**：按 `EvalSample` 数据结构手工编写，精确控制质量
+3. **混合模式**：自动生成 + 质量审核 + 人工补充修正
+
+### 评测数据集拆分
+
+```python
+from eval.dataset import split_dataset
+train, test = split_dataset(ds, train_ratio=0.7)
+# 训练集用于调参（如权重扫描），测试集用于最终评测
+```
 
 ## 可优化方向
 
@@ -347,7 +418,7 @@ npm run dev                          # http://localhost:3000
 | 工具扩展 | 注册表已支持动态注册 | 车型对比图、金融方案计算器、试驾预约 |
 | 可观测性 | 仅 logging 模块 | OpenTelemetry 全链路追踪 |
 | 权限控制 | 无认证 | API Key 认证或 OAuth2 |
-| 测试覆盖 | 无自动化测试 | 核心模块单元测试 + 集成测试 |
+| 测试覆盖 | 评测模块已覆盖 RAG 检索/生成质量 | 核心模块单元测试 + CI 集成 |
 | 容器化 | 手动启动 | Docker Compose 一键部署 |
 
 ---
