@@ -31,7 +31,7 @@ class Config:
     llm_api_key: str = field(
         default_factory=lambda: os.getenv(
             "LLM_API_KEY",
-            "sk-your-qwen-api-key-here",  # 替换为你的千问 API Key
+            "sk-80ba4c1f4c774ab7afcf4275a294f125",  # 替换为你的千问 API Key
         )
     )
     llm_model: str = field(
@@ -52,7 +52,7 @@ class Config:
     embedding_api_key: str = field(
         default_factory=lambda: os.getenv(
             "EMBEDDING_API_KEY",
-            "sk-your-qwen-api-key-here",  # 替换为你的千问 API Key
+            "sk-80ba4c1f4c774ab7afcf4275a294f125",  # 替换为你的千问 API Key
         )
     )
     embedding_model: str = field(
@@ -128,7 +128,7 @@ class Config:
     llamaparse_api_key: str = field(
         default_factory=lambda: os.getenv(
             "LLAMAPARSE_API_KEY",
-            "your-llamaparse-key-here",  # 替换为你的 LlamaParse Key
+            "llx-beWd4mDMnsf1ElZXHU9AaN6dBMUrrkEYfxDPCe4cYBxGjje8",  # 替换为你的 LlamaParse Key
         )
     )
     chunk_max_tokens: int = 300

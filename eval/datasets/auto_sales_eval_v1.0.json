@@ -1,0 +1,159 @@
+{
+  "name": "auto_sales_eval",
+  "version": "1.0",
+  "samples": [
+    {
+      "query": "问界M9的纯电续航里程是多少？",
+      "ground_truth": "问界M9纯电版搭载100kWh电池组，CLTC工况下纯电续航里程为630公里。增程版搭载1.5T增程器，纯电续航275公里，综合续航可达1400公里以上。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界M9纯电版搭载100kWh电池组，CLTC工况下纯电续航里程为630公里",
+        "增程版搭载1.5T增程器和42kWh电池，纯电续航275公里，满油满电综合续航超过1400公里"
+      ],
+      "question_type": "factual",
+      "difficulty": "easy",
+      "metadata": {
+        "topic": "续航",
+        "car_model": "问界M9"
+      }
+    },
+    {
+      "query": "问界M7和理想L8相比，在智能驾驶方面谁更强？",
+      "ground_truth": "问界M7搭载华为ADS 2.0高阶智能驾驶系统，配备1个激光雷达、11个摄像头、12个超声波雷达和3个毫米波雷达，支持城市NCA和高速NCA。理想L8搭载AD Max智能驾驶系统，配备1个激光雷达、11个摄像头、12个超声波雷达和1个毫米波雷达，支持城市NOA和高速NOA。两者在硬件配置上接近，但华为ADS 2.0在无图城市领航和AEB性能方面有优势。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界M7搭载华为ADS 2.0高阶智能驾驶系统，配备1个激光雷达、11个摄像头、12个超声波雷达、3个毫米波雷达",
+        "理想L8搭载AD Max智能驾驶系统，配备1个激光雷达、11个摄像头、12个超声波雷达、1个毫米波雷达"
+      ],
+      "question_type": "comparative",
+      "difficulty": "hard",
+      "metadata": {
+        "topic": "智能驾驶",
+        "car_model": "问界M7"
+      }
+    },
+    {
+      "query": "问界M5的0-100km/h加速时间是几秒？",
+      "ground_truth": "问界M5纯电四驱版0-100km/h加速时间为4.5秒，后驱版为7.1秒。增程四驱版0-100km/h加速时间为4.4秒，后驱版为7.1秒。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界M5纯电四驱版0-100km/h加速时间4.5秒，后驱版7.1秒",
+        "增程四驱版0-100km/h加速时间4.4秒"
+      ],
+      "question_type": "factual",
+      "difficulty": "easy",
+      "metadata": {
+        "topic": "动力性能",
+        "car_model": "问界M5"
+      }
+    },
+    {
+      "query": "作为一名家庭用户，问界M9适合我日常接送孩子和周末出游吗？",
+      "ground_truth": "问界M9非常适合家庭用户。它采用2+2+2六座布局，第二排为独立座椅带腿托和通风加热按摩功能，第三排可折叠扩展后备箱空间。车内配备华为SOUND音响系统、后排智慧屏和车载冰箱。安全方面配备全向防碰撞系统CAS 3.0和9安全气囊。超长综合续航也适合长途出游。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界M9采用2+2+2六座布局，第二排独立座椅配备通风加热按摩功能",
+        "搭载华为SOUND音响系统、32英寸后排智慧屏、车载冰箱",
+        "全向防碰撞系统CAS 3.0，配备9安全气囊"
+      ],
+      "question_type": "sales_scenario",
+      "difficulty": "medium",
+      "metadata": {
+        "topic": "家用场景",
+        "car_model": "问界M9"
+      }
+    },
+    {
+      "query": "问界新M7的车身尺寸是多少？",
+      "ground_truth": "问界新M7长宽高分别为5020/1945/1760mm，轴距为2820mm。采用2+3五座和2+2+2六座两种布局可选。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界新M7车身尺寸：长5020mm、宽1945mm、高1760mm，轴距2820mm"
+      ],
+      "question_type": "factual",
+      "difficulty": "easy",
+      "metadata": {
+        "topic": "车身尺寸",
+        "car_model": "问界M7"
+      }
+    },
+    {
+      "query": "问界M9和问界M7在价格上差多少？各有什么配置差异？",
+      "ground_truth": "问界M9售价区间为46.98-56.98万元，问界新M7售价区间为24.98-32.98万元。M9定位为大型旗舰SUV，标配空气悬架+CDC、华为ADS 2.0、智慧投影大灯、零重力座椅；M7定位为中大型SUV，高配可选装ADS 2.0和零重力座椅。M9在尺寸、豪华配置和科技配置上全面领先。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界M9售价46.98-56.98万元，标配空气悬架、CDC减震、华为ADS 2.0",
+        "问界新M7售价24.98-32.98万元，高配可选华为ADS 2.0"
+      ],
+      "question_type": "comparative",
+      "difficulty": "hard",
+      "metadata": {
+        "topic": "价格配置对比",
+        "car_model": "问界M9"
+      }
+    },
+    {
+      "query": "鸿蒙座舱有哪些特色功能？",
+      "ground_truth": "鸿蒙座舱基于HarmonyOS 4，特色功能包括：超级桌面（手机应用无缝流转到车机）、多屏互动（中控屏、仪表屏、HUD、后排屏协同）、小艺语音助手（支持可见即可说、连续对话、四音区识别）、3D车控（通过车模直接控制车窗空调等）、智慧寻车、无缝流转导航等。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "鸿蒙座舱基于HarmonyOS 4，支持超级桌面、多屏互动、小艺语音助手",
+        "小艺支持可见即可说、连续对话、四音区识别",
+        "支持3D车控、智慧寻车、无缝流转导航"
+      ],
+      "question_type": "factual",
+      "difficulty": "medium",
+      "metadata": {
+        "topic": "智能座舱",
+        "car_model": "通用"
+      }
+    },
+    {
+      "query": "客户觉得新能源车不安全，怎么回应？",
+      "ground_truth": "可以从以下方面回应：1) 问界全系搭载CTP电池包，通过针刺、挤压、跌落等200+项安全测试，电池包达到IP68防水防尘等级；2) 全向防碰撞系统CAS 3.0支持前向、侧向、后向主动安全，AEB最高刹停速度120km/h；3) 车身采用高强度钢铝混合结构，问界M9高强度钢占比超过80%；4) 配备9安全气囊和预紧式安全带；5) 问界车型均获得C-NCAP五星安全认证。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界全系CTP电池包通过针刺、挤压、跌落等200+项安全测试，IP68防护等级",
+        "全向防碰撞系统CAS 3.0，AEB最高刹停速度120km/h",
+        "车身采用高强度钢铝混合结构，M9高强度钢占比超80%"
+      ],
+      "question_type": "sales_scenario",
+      "difficulty": "medium",
+      "metadata": {
+        "topic": "安全性能",
+        "car_model": "通用"
+      }
+    },
+    {
+      "query": "问界M9的智能大灯有什么特别之处？",
+      "ground_truth": "问界M9搭载华为XPIXEL百万像素智慧投影大灯，具备以下特点：1) 精确遮蔽远光灯中的行人和车辆（ADB自适应远光）；2) 投射导航引导线和车道提示到路面；3) 投影迎宾灯语和充电状态显示；4) 支持100+英寸的户外投影，可作为移动影院使用。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界M9搭载华为XPIXEL百万像素智慧投影大灯",
+        "支持ADB自适应远光、路面导航引导线投射、迎宾灯语、户外投影"
+      ],
+      "question_type": "factual",
+      "difficulty": "easy",
+      "metadata": {
+        "topic": "灯光科技",
+        "car_model": "问界M9"
+      }
+    },
+    {
+      "query": "问界M5、M7、M9三款车怎么选？帮我分析一下各自的定位。",
+      "ground_truth": "问界M5定位中型运动SUV（25-33万），主打年轻个人用户和两口之家，特点是运动操控、时尚设计、4秒级加速；问界M7定位中大型家庭SUV（25-33万），主打三口/四口之家，特点是空间舒适、零重力座椅、均衡配置；问界M9定位大型旗舰SUV（47-57万），主打商务+大家庭用户，特点是豪华科技、六座尊享、全面配置。预算有限选M5/M7，追求极致体验选M9。",
+      "relevant_chunk_ids": [],
+      "relevant_chunks": [
+        "问界M5定位中型运动SUV，25-33万，4秒级加速，适合年轻用户",
+        "问界新M7定位中大型家庭SUV，25-33万，零重力座椅，空间舒适",
+        "问界M9定位大型旗舰SUV，47-57万，豪华科技，六座尊享"
+      ],
+      "question_type": "comparative",
+      "difficulty": "hard",
+      "metadata": {
+        "topic": "车型定位",
+        "car_model": "通用"
+      }
+    }
+  ]
+}

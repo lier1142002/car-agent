@@ -1,0 +1,96 @@
+# ======================================
+# 系统自动生成的缓存文件（全平台）
+# ======================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ======================================
+# 编辑器 / IDE 配置缓存
+# ======================================
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# JetBrains (IDEA / WebStorm / PyCharm / GoLand)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.cproject
+.project
+.settings/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-workspace
+
+# ======================================
+# 依赖包 / 第三方库目录
+# ======================================
+node_modules/
+vendor/
+composer.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ======================================
+# 编译 / 构建产物
+# ======================================
+dist/
+build/
+out/
+output/
+*.o
+*.obj
+*.class
+*.dll
+*.exe
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# ======================================
+# 日志文件
+# ======================================
+logs/
+log/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ======================================
+# 环境变量 / 配置文件（敏感信息）
+# ======================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# ======================================
+# 临时文件 / 测试文件
+# ======================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
