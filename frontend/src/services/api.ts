@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatResponse, AgentState, ConfigSettings, UpdateConfigPayload, PdfUploadResponse } from '../types';
+import type { ChatRequest, ChatResponse, AgentState, ConfigSettings, UpdateConfigPayload, PdfUploadResponse, DatasetSummary, EvalRunRequest, EvalRunResponse } from '../types';
 
 const BASE = '/api';
 
@@ -62,4 +62,15 @@ export async function uploadPdf(file: File): Promise<PdfUploadResponse> {
     throw new Error(`Upload failed: ${res.status}`);
   }
   return res.json();
+}
+
+export async function getDatasets(): Promise<DatasetSummary[]> {
+  return request<DatasetSummary[]>('/eval/datasets');
+}
+
+export async function runEval(data: EvalRunRequest): Promise<EvalRunResponse> {
+  return request<EvalRunResponse>('/eval/run', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
