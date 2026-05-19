@@ -486,6 +486,56 @@ async def run_eval(request: EvalRunRequest):
         raise HTTPException(status_code=500, detail=f"评测运行失败: {exc}")
 
 
+@app.post("/api/eval/sweep")
+async def run_eval_sweep(request: EvalRunRequest):
+    """运行混合检索权重扫描评测。
+
+    对 6 组预设 (dense, sparse) 权重组合分别评测，
+    用于找到最优权重配比。固定使用 hybrid 模式。
+
+    Args:
+        request: 评测配置（dataset_name, top_k, generate_answers）。
+
+    Returns:
+        List[dict]: 每组权重的 EvalReport.to_dict() 结果。
+    """
+    from eval.dataset import GoldenDataset
+    from eval.runner import EvalRunner
+
+    agent = get_agent()
+
+    # 检查知识库是否已索引
+    state = agent.get_state()
+    if not state.get("rag_indexed", False):
+        raise HTTPException(
+            status_code=400,
+            detail="请先索引知识库（上传 PDF 或调用 /api/index）",
+        )
+
+    # 加载数据集
+    datasets_dir = Path(__file__).resolve().parent.parent.parent / "eval" / "datasets"
+    dataset_path = datasets_dir / request.dataset_name
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail=f"数据集不存在: {request.dataset_name}")
+
+    try:
+        dataset = GoldenDataset.load(dataset_path)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"数据集加载失败: {exc}")
+
+    # 运行权重扫描
+    try:
+        runner = EvalRunner(rag_tool=agent.rag_tool, top_k=request.top_k)
+        reports = runner.sweep_weights(
+            dataset,
+            generate_answers=request.generate_answers,
+        )
+        return [r.to_dict() for r in reports]
+    except Exception as exc:
+        logger.error("权重扫描失败: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"权重扫描失败: {exc}")
+
+
 # =============================================================================
 # WebSocket 端点 —— 实时流式查询
 # =============================================================================
