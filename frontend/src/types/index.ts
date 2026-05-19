@@ -109,6 +109,10 @@ export interface ConfigSettings {
   serpapi_key: string;
   llamaparse_api_key: string;
   embedding_model: string;
+  llm_model: string;
+  llm_api_url: string;
+  llm_temperature: number;
+  llm_max_tokens: number;
 }
 
 /** 更新配置请求体 */
@@ -118,6 +122,10 @@ export interface UpdateConfigPayload {
   embedding_provider?: 'qwen' | 'deepseek';
   serpapi_key?: string;
   llamaparse_api_key?: string;
+  llm_model?: string;
+  llm_api_url?: string;
+  llm_temperature?: number;
+  llm_max_tokens?: number;
 }
 
 /** PDF 上传响应 */
