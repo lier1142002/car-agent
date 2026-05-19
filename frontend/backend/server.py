@@ -33,7 +33,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 # ---------------------------------------------------------------------------
 import tempfile
 import shutil
-from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel, Field
@@ -138,6 +138,22 @@ class PdfUploadResponse(BaseModel):
     filename: str = ""
     chunks: int = 0
     message: str = ""
+
+
+class EvalRunRequest(BaseModel):
+    """评测运行请求体。"""
+    dataset_name: str = Field(..., min_length=1, description="数据集文件名")
+    retrieval_mode: str = Field("hybrid", pattern="^(dense|sparse|hybrid)$", description="检索模式")
+    top_k: int = Field(5, ge=1, le=50, description="检索返回数量")
+    generate_answers: bool = Field(True, description="是否生成回答")
+
+
+class DatasetItem(BaseModel):
+    """数据集摘要项。"""
+    name: str
+    total_samples: int
+    by_type: dict
+    by_difficulty: dict
 
 
 # =============================================================================
@@ -389,6 +405,85 @@ async def get_state() -> StateResponse:
         rag_indexed=bool(raw.get("rag_indexed", False)),
         iteration_count=int(raw.get("iteration_count", 0)),
     )
+
+
+@app.get("/api/eval/datasets", response_model=List[DatasetItem])
+async def get_eval_datasets() -> List[DatasetItem]:
+    """列出 eval/datasets/ 目录下所有可用评测数据集。
+
+    Returns:
+        List[DatasetItem]: 数据集摘要列表。
+    """
+    from eval.dataset import GoldenDataset
+
+    datasets_dir = Path(__file__).resolve().parent.parent.parent / "eval" / "datasets"
+    items: List[DatasetItem] = []
+
+    if not datasets_dir.exists():
+        return items
+
+    for f in sorted(datasets_dir.glob("*.json")):
+        try:
+            ds = GoldenDataset.load(f)
+            summary = ds.summary()
+            items.append(DatasetItem(
+                name=f.name,
+                total_samples=summary["total_samples"],
+                by_type=summary.get("by_type", {}),
+                by_difficulty=summary.get("by_difficulty", {}),
+            ))
+        except Exception as exc:
+            logger.warning("加载数据集失败: %s - %s", f.name, exc)
+
+    return items
+
+
+@app.post("/api/eval/run")
+async def run_eval(request: EvalRunRequest):
+    """运行 RAG 评测。
+
+    Args:
+        request: 评测配置（数据集名、检索模式、top_k、是否生成回答）。
+
+    Returns:
+        dict: EvalReport.to_dict() 的序列化结果。
+    """
+    from eval.dataset import GoldenDataset
+    from eval.runner import EvalRunner
+
+    agent = get_agent()
+
+    # 检查知识库是否已索引
+    state = agent.get_state()
+    if not state.get("rag_indexed", False):
+        raise HTTPException(
+            status_code=400,
+            detail="请先索引知识库（上传 PDF 或调用 /api/index）",
+        )
+
+    # 加载数据集
+    datasets_dir = Path(__file__).resolve().parent.parent.parent / "eval" / "datasets"
+    dataset_path = datasets_dir / request.dataset_name
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail=f"数据集不存在: {request.dataset_name}")
+
+    try:
+        dataset = GoldenDataset.load(dataset_path)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"数据集加载失败: {exc}")
+
+    # 运行评测
+    try:
+        runner = EvalRunner(rag_tool=agent.rag_tool, top_k=request.top_k)
+        report = runner.run(
+            dataset,
+            retrieval_mode=request.retrieval_mode,
+            generate_answers=request.generate_answers,
+        )
+        return report.to_dict()
+    except Exception as exc:
+        logger.error("评测运行失败: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"评测运行失败: {exc}")
 
 
 # =============================================================================
