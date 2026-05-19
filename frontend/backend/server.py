@@ -109,10 +109,14 @@ class ConfigSettings(BaseModel):
     """配置设置（API Key 脱敏显示）。"""
     llm_api_key: str = ""
     embedding_api_key: str = ""
-    embedding_provider: str = "qwen"
+    embedding_provider: str = "deepseek"
     serpapi_key: str = ""
     llamaparse_api_key: str = ""
     embedding_model: str = ""
+    llm_model: str = ""
+    llm_api_url: str = ""
+    llm_temperature: float = 0.1
+    llm_max_tokens: int = 2048
 
 
 class UpdateConfigRequest(BaseModel):
@@ -122,6 +126,10 @@ class UpdateConfigRequest(BaseModel):
     embedding_provider: Optional[str] = None
     serpapi_key: Optional[str] = None
     llamaparse_api_key: Optional[str] = None
+    llm_model: Optional[str] = None
+    llm_api_url: Optional[str] = None
+    llm_temperature: Optional[float] = None
+    llm_max_tokens: Optional[int] = None
 
 
 class PdfUploadResponse(BaseModel):
@@ -213,6 +221,10 @@ async def get_config() -> ConfigSettings:
         serpapi_key=_mask_api_key(config.serpapi_key),
         llamaparse_api_key=_mask_api_key(config.llamaparse_api_key),
         embedding_model=config.embedding_model,
+        llm_model=config.llm_model,
+        llm_api_url=config.llm_api_url,
+        llm_temperature=config.llm_temperature,
+        llm_max_tokens=config.llm_max_tokens,
     )
 
 
@@ -228,7 +240,7 @@ async def update_config(request: UpdateConfigRequest):
 
     if "embedding_provider" in updated:
         agent.rag_tool.embedding.switch_provider(config.embedding_provider)
-    if any(k in updated for k in ("llm_api_key",)):
+    if any(k in updated for k in ("llm_api_key", "llm_api_url", "llm_model")):
         new_client = OpenAI(
             api_key=config.llm_api_key,
             base_url=config.llm_api_url,
