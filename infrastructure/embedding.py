@@ -82,7 +82,9 @@ class DeepSeekEmbeddingProvider(BaseEmbeddingProvider):
     """DeepSeek Embedding API（OpenAI 兼容接口）。"""
 
     def __init__(self) -> None:
-        api_key = config.deepseek_api_key or config.embedding_api_key
+        # deepseek_api_key 优先，但跳过占位符值
+        dsk = config.deepseek_api_key
+        api_key = dsk if (dsk and "your-" not in dsk) else config.embedding_api_key
         self.client = OpenAI(
             api_key=api_key,
             base_url=config.deepseek_api_url,
@@ -135,9 +137,9 @@ class EmbeddingClient:
     def _create_provider(self, name: str) -> BaseEmbeddingProvider:
         """工厂方法：根据名称创建对应的 provider 实例。"""
         self.provider_name = name
-        if name == "deepseek":
-            return DeepSeekEmbeddingProvider()
-        return QwenEmbeddingProvider()
+        if name == "qwen":
+            return QwenEmbeddingProvider()
+        return DeepSeekEmbeddingProvider()
 
     def switch_provider(self, name: str) -> None:
         """运行时切换到指定提供商。

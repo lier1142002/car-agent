@@ -182,7 +182,6 @@ class WebSearchTool(BaseTool):
         self.description = (
             "联网搜索最新汽车资讯、竞品对比、市场行情、政策信息"
         )
-        self.serpapi_key = config.serpapi_key
         self.crawler = WebCrawler()
         self.chroma_client = chromadb.Client()
         logger.info("WebSearchTool 已初始化")
@@ -201,7 +200,7 @@ class WebSearchTool(BaseTool):
         """
         params: Dict[str, Any] = {
             "q": query,
-            "api_key": self.serpapi_key,
+            "api_key": config.serpapi_key,
             "engine": "google",
             "num": num_results,
             "hl": "zh-CN",
