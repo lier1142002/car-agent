@@ -15,6 +15,9 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
+# VARCHAR 安全上限，预留 10% 余量防止边界溢出
+SAFE_CHUNK_CHARS = 3600
+
 
 class DocParser:
     """文档解析器。
@@ -125,6 +128,15 @@ class DocParser:
 
         if current_chunk.strip():
             chunks.append(current_chunk.strip())
+
+        # 最终安全检查：截断超出 VARCHAR 上限的块
+        for i, chunk in enumerate(chunks):
+            if len(chunk) > SAFE_CHUNK_CHARS:
+                logger.warning(
+                    "chunk[%d] 长度 %d > %d，已截断",
+                    i, len(chunk), SAFE_CHUNK_CHARS,
+                )
+                chunks[i] = chunk[:SAFE_CHUNK_CHARS]
 
         logger.info(
             "文本切块完成: 原文约%d字符 -> %d个块",

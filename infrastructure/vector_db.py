@@ -25,6 +25,9 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
+# VARCHAR 字段最大长度（需与 Schema 定义一致）
+TEXT_MAX_LENGTH = 4096
+
 
 class VectorDB:
     """Milvus 向量数据库封装。
@@ -66,12 +69,26 @@ class VectorDB:
     def _get_or_create_collection(self) -> Collection:
         """获取已有 Collection 或创建新的。
 
+        自动检测 Schema 兼容性：如果 text 字段的 max_length 不匹配，
+        则删除旧 Collection 并重建。
+
         Returns:
             Collection: Milvus Collection 对象。
         """
         if self.client.has_collection(self.collection_name):
-            logger.info("Collection '%s' 已存在，直接加载", self.collection_name)
-            return Collection(self.collection_name)
+            # 检查现有 Schema 是否兼容
+            col = Collection(self.collection_name)
+            for field in col.schema.fields:
+                if field.name == "text" and field.params.get("max_length") != TEXT_MAX_LENGTH:
+                    logger.warning(
+                        "text 字段 max_length 不匹配 (%s != %s)，重建 Collection",
+                        field.params.get("max_length"),
+                        TEXT_MAX_LENGTH,
+                    )
+                    self.client.drop_collection(self.collection_name)
+                    return self._create_collection()
+            logger.info("Collection '%s' 已存在且 Schema 兼容，直接加载", self.collection_name)
+            return col
 
         logger.info("创建新 Collection: %s", self.collection_name)
         return self._create_collection()
@@ -99,7 +116,7 @@ class VectorDB:
                 FieldSchema(
                     name="text",
                     dtype=DataType.VARCHAR,
-                    max_length=512,
+                    max_length=TEXT_MAX_LENGTH,
                 ),
                 FieldSchema(
                     name="sparse_vector",
@@ -173,7 +190,7 @@ class VectorDB:
         dense_vectors: List[List[float]],
         sparse_vectors: List[Dict[str, float]],
     ) -> int:
-        """批量插入文本和向量到 Collection。
+        """批量插入文本和向量到 Collection（MilvusClient API）。
 
         Args:
             texts: 文本列表。
@@ -190,14 +207,16 @@ class VectorDB:
         data: List[Dict[str, Any]] = []
         for text, dense, sparse in zip(texts, dense_vectors, sparse_vectors):
             data.append({
-                "text": text[:512],  # 截断到 VARCHAR 最大长度
+                "text": text[:TEXT_MAX_LENGTH],  # 截断到 VARCHAR 最大长度
                 "dense_vector": dense,
                 "sparse_vector": sparse,
             })
 
-        result = self.collection.insert(data)
-        self.collection.flush()
-        insert_count = result.insert_count
+        result = self.client.insert(
+            collection_name=self.collection_name,
+            data=data,
+        )
+        insert_count = result["insert_count"]
         logger.info("成功插入 %d 条数据", insert_count)
         return insert_count
 
