@@ -71,25 +71,36 @@ class VectorDB:
 
         自动检测 Schema 兼容性：如果 text 字段的 max_length 不匹配，
         则删除旧 Collection 并重建。
-
-        Returns:
-            Collection: Milvus Collection 对象。
         """
         if self.client.has_collection(self.collection_name):
-            # 使用 describe_collection 检查现有 text 字段的 max_length
             info = self.client.describe_collection(self.collection_name)
+            logger.info("describe_collection raw fields: %s", info.get("fields"))
+
+            current_max = 0
             for field in info.get("fields", []):
                 if field.get("name") == "text":
-                    current_max = field.get("params", {}).get("max_length", 0)
-                    if current_max != TEXT_MAX_LENGTH:
-                        logger.warning(
-                            "text 字段 max_length 不匹配 (%s != %s)，重建 Collection",
-                            current_max,
-                            TEXT_MAX_LENGTH,
-                        )
-                        self.client.drop_collection(self.collection_name)
-                        return self._create_collection()
+                    params = field.get("params", {})
+                    # describe_collection 在不同 pymilvus 版本中 params 格式不同：
+                    # 可能是 dict: {"max_length": 512}
+                    # 也可能是 list: [{"key": "max_length", "value": "512"}]
+                    if isinstance(params, dict):
+                        current_max = int(params.get("max_length", 0))
+                    elif isinstance(params, list):
+                        for p in params:
+                            if p.get("key") == "max_length":
+                                current_max = int(p.get("value", 0))
+                                break
                     break
+
+            if current_max != TEXT_MAX_LENGTH:
+                logger.warning(
+                    "text 字段 max_length 不匹配 (当前=%s, 期望=%s)，删除旧 Collection 并重建",
+                    current_max,
+                    TEXT_MAX_LENGTH,
+                )
+                self.client.drop_collection(self.collection_name)
+                return self._create_collection()
+
             logger.info("Collection '%s' 已存在且 Schema 兼容，直接加载", self.collection_name)
             return Collection(self.collection_name)
 
@@ -215,10 +226,25 @@ class VectorDB:
                 "sparse_vector": sparse,
             })
 
-        result = self.client.insert(
-            collection_name=self.collection_name,
-            data=data,
-        )
+        try:
+            result = self.client.insert(
+                collection_name=self.collection_name,
+                data=data,
+            )
+        except Exception as e:
+            err = str(e)
+            if "exceeds" in err and "max length" in err or "varchar" in err.lower():
+                logger.warning(
+                    "插入失败，VARCHAR 长度可能不兼容，重建 Collection: %s", e
+                )
+                self.reset_collection()
+                result = self.client.insert(
+                    collection_name=self.collection_name,
+                    data=data,
+                )
+            else:
+                raise
+
         insert_count = result["insert_count"]
         logger.info("成功插入 %d 条数据", insert_count)
         return insert_count
