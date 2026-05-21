@@ -27,15 +27,15 @@ class DocParser:
 
     Attributes:
         api_key: LlamaParse API 密钥。
-        chunk_max_tokens: 每个切块的最大 token 数。
-        chunk_overlap_tokens: 相邻切块的重叠 token 数。
+        chunk_max_chars: 每个切块的最大字符数。
+        chunk_overlap_chars: 相邻切块的重叠字符数。
     """
 
     def __init__(self) -> None:
         """初始化文档解析器。"""
         self.api_key = config.llamaparse_api_key
-        self.chunk_max_tokens = config.chunk_max_tokens
-        self.chunk_overlap_tokens = config.chunk_overlap_tokens
+        self.chunk_max_chars = config.chunk_max_chars
+        self.chunk_overlap_chars = config.chunk_overlap_chars
         logger.info("DocParser 已初始化")
 
     def parse_pdf(self, file_path: str) -> List[str]:
@@ -75,7 +75,7 @@ class DocParser:
             logger.error("PDF 解析失败: %s", e)
             raise RuntimeError(f"PDF 解析失败: {e}") from e
 
-    def chunk_text(self, text: str, max_tokens: Optional[int] = None) -> List[str]:
+    def chunk_text(self, text: str, max_chars: Optional[int] = None) -> List[str]:
         """将长文本智能切分为适合 Embedding 的块。
 
         切块策略:
@@ -86,14 +86,13 @@ class DocParser:
 
         Args:
             text: 待切分的文本。
-            max_tokens: 每块最大 token 数，默认使用配置值。
+            max_chars: 每块最大字符数，默认使用配置值。
 
         Returns:
             List[str]: 文本块列表。
         """
-        max_tokens = max_tokens or self.chunk_max_tokens
-        # 粗略估计: 1 token ≈ 2 中文字符 ≈ 4 英文字符
-        max_chars = max_tokens * 3
+        max_chars = max_chars or self.chunk_max_chars
+        overlap_chars = self.chunk_overlap_chars
 
         # 将完整文本按双换行分段
         paragraphs = self._split_by_headings_and_paragraphs(text)
@@ -119,7 +118,7 @@ class DocParser:
                 # 如果单个段落就超长，按句子切分
                 if len(para) > max_chars:
                     sub_chunks = self._split_long_paragraph(
-                        para, max_chars, self.chunk_overlap_tokens * 3
+                        para, max_chars, overlap_chars
                     )
                     chunks.extend(sub_chunks)
                     current_chunk = ""

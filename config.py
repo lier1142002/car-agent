@@ -142,8 +142,8 @@ class Config:
             "llx-beWd4mDMnsf1ElZXHU9AaN6dBMUrrkEYfxDPCe4cYBxGjje8",  # 替换为你的 LlamaParse Key
         )
     )
-    chunk_max_tokens: int = 300
-    chunk_overlap_tokens: int = 50
+    chunk_max_chars: int = 500
+    chunk_overlap_chars: int = 50
 
     # =========================================================================
     # 日志配置

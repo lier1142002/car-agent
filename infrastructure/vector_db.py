@@ -76,19 +76,22 @@ class VectorDB:
             Collection: Milvus Collection 对象。
         """
         if self.client.has_collection(self.collection_name):
-            # 检查现有 Schema 是否兼容
-            col = Collection(self.collection_name)
-            for field in col.schema.fields:
-                if field.name == "text" and field.params.get("max_length") != TEXT_MAX_LENGTH:
-                    logger.warning(
-                        "text 字段 max_length 不匹配 (%s != %s)，重建 Collection",
-                        field.params.get("max_length"),
-                        TEXT_MAX_LENGTH,
-                    )
-                    self.client.drop_collection(self.collection_name)
-                    return self._create_collection()
+            # 使用 describe_collection 检查现有 text 字段的 max_length
+            info = self.client.describe_collection(self.collection_name)
+            for field in info.get("fields", []):
+                if field.get("name") == "text":
+                    current_max = field.get("params", {}).get("max_length", 0)
+                    if current_max != TEXT_MAX_LENGTH:
+                        logger.warning(
+                            "text 字段 max_length 不匹配 (%s != %s)，重建 Collection",
+                            current_max,
+                            TEXT_MAX_LENGTH,
+                        )
+                        self.client.drop_collection(self.collection_name)
+                        return self._create_collection()
+                    break
             logger.info("Collection '%s' 已存在且 Schema 兼容，直接加载", self.collection_name)
-            return col
+            return Collection(self.collection_name)
 
         logger.info("创建新 Collection: %s", self.collection_name)
         return self._create_collection()
