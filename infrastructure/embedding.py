@@ -36,15 +36,14 @@ class BaseEmbeddingProvider(ABC):
     def _dense_to_sparse(
         dense_vector: List[float], top_k: int = 50
     ) -> Dict[str, float]:
-        """将稠密向量转换为稀疏表示（top-k 绝对值维度）。
+        """将稠密向量转换为稀疏表示。
 
-        Milvus SPARSE_FLOAT_VECTOR 要求所有值 >= 0，
-        因此必须使用绝对值。
+        仅保留正值维度（Milvus SPARSE_FLOAT_VECTOR 要求值 >= 0），
+        按值降序取 top-k。若正值不足 top_k，返回全部正值。
         """
-        indexed = [(i, abs(v)) for i, v in enumerate(dense_vector)]
-        indexed.sort(key=lambda x: x[1], reverse=True)
-        top_indices = indexed[:top_k]
-        return {str(idx): abs(dense_vector[idx]) for idx, _ in top_indices}
+        positive = [(i, v) for i, v in enumerate(dense_vector) if v > 0]
+        positive.sort(key=lambda x: x[1], reverse=True)
+        return {str(idx): val for idx, val in positive[:top_k]}
 
 
 class QwenEmbeddingProvider(BaseEmbeddingProvider):
