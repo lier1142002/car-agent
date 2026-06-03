@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Set
 
@@ -51,6 +52,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# 启动时验证关键配置
+_key = config.llm_api_key
+if _key and "your-" not in _key:
+    logger.info("LLM API Key 已加载: %s***%s", _key[:5], _key[-4:])
+else:
+    logger.warning("LLM API Key 未设置或为占位符，LLM 调用将失败")
+
 # =============================================================================
 # Pydantic 模型 —— 请求 / 响应 schema
 # =============================================================================
@@ -62,11 +70,21 @@ class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, description="用户查询文本")
 
 
+class SourceItem(BaseModel):
+    """信息来源条目（结构化）。"""
+
+    text: str = Field(..., description="来源内容文本")
+    tool: str = Field("检索", description="工具名称")
+    score: Optional[float] = Field(None, description="相关性分数")
+    title: Optional[str] = Field(None, description="来源标题")
+    url: Optional[str] = Field(None, description="来源 URL")
+
+
 class ChatResponse(BaseModel):
     """聊天响应体（一次性返回，非流式）。"""
 
     answer: str = Field(..., description="Agent 最终自然语言回答")
-    sources: List[str] = Field(default_factory=list, description="从记忆提取的信息来源")
+    sources: List[SourceItem] = Field(default_factory=list, description="结构化信息来源")
     trace: List[str] = Field(default_factory=list, description="人类可读的执行追踪")
     actions: List[Dict[str, str]] = Field(default_factory=list, description="规划的 Action 列表")
 
@@ -108,8 +126,6 @@ class HealthResponse(BaseModel):
 class ConfigSettings(BaseModel):
     """配置设置（API Key 脱敏显示）。"""
     llm_api_key: str = ""
-    embedding_api_key: str = ""
-    embedding_provider: str = "local"
     serpapi_key: str = ""
     llamaparse_api_key: str = ""
     embedding_model: str = ""
@@ -122,8 +138,6 @@ class ConfigSettings(BaseModel):
 class UpdateConfigRequest(BaseModel):
     """更新配置请求体（所有字段可选）。"""
     llm_api_key: Optional[str] = None
-    embedding_api_key: Optional[str] = None
-    embedding_provider: Optional[str] = None
     serpapi_key: Optional[str] = None
     llamaparse_api_key: Optional[str] = None
     llm_model: Optional[str] = None
@@ -164,14 +178,16 @@ _agent: Optional[AutoSalesAgent] = None
 
 
 def get_agent() -> AutoSalesAgent:
-    """获取 AutoSalesAgent 全局单例。
+    """[DEPRECATED] 获取 AutoSalesAgent 单例.
 
-    首次调用时创建实例（包含 LLM 客户端初始化），
-    后续调用返回同一实例以保持会话记忆的连续性。
-
-    Returns:
-        AutoSalesAgent: 全局唯一的 Agent 实例。
+    警告: 此函数在高并发改造后不再适用。
+    请使用 worker/agent_factory.py 中的 AgentFactory 创建请求级 Agent。
     """
+    warnings.warn(
+        "get_agent() is deprecated. Use AgentFactory for request-scoped agents.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     global _agent
     if _agent is None:
         logger.info("AutoSalesAgent 单例首次初始化中 ...")
@@ -232,11 +248,9 @@ async def get_config() -> ConfigSettings:
     """获取当前配置（API Key 脱敏显示）。"""
     return ConfigSettings(
         llm_api_key=_mask_api_key(config.llm_api_key),
-        embedding_api_key=_mask_api_key(config.embedding_api_key),
-        embedding_provider=config.embedding_provider,
         serpapi_key=_mask_api_key(config.serpapi_key),
         llamaparse_api_key=_mask_api_key(config.llamaparse_api_key),
-        embedding_model=config.embedding_model,
+        embedding_model=config.local_embedding_model,
         llm_model=config.llm_model,
         llm_api_url=config.llm_api_url,
         llm_temperature=config.llm_temperature,
@@ -254,11 +268,6 @@ async def update_config(request: UpdateConfigRequest):
     updated = config.update_from_dict(data)
     agent = get_agent()
 
-    if "embedding_provider" in updated:
-        agent.rag_tool.embedding.switch_provider(config.embedding_provider)
-    if any(k in updated for k in ("embedding_api_key", "embedding_api_url", "embedding_model",
-                                   "deepseek_api_key", "deepseek_api_url", "deepseek_embedding_model")):
-        agent.rag_tool.embedding.switch_provider(config.embedding_provider)
     if any(k in updated for k in ("llm_api_key", "llm_api_url", "llm_model")):
         new_client = OpenAI(
             api_key=config.llm_api_key,
@@ -633,14 +642,27 @@ def _execute_and_stream(query: str) -> Generator[Dict[str, Any], None, None]:
     agent = get_agent()
 
     # ------------------------------------------------------------------
-    # 阶段 1: 规划
+    # 阶段 1: 存储查询 + 查询改写
     # ------------------------------------------------------------------
     agent.memory.add(query, content_type="user_query")
 
-    yield {"type": "plan_start", "payload": {"query": query}}
+    rewritten_query = agent.memory.rewrite_query_with_history(query)
+    if rewritten_query != query:
+        yield {
+            "type": "query_rewrite",
+            "payload": {"original": query, "rewritten": rewritten_query},
+        }
+
+    yield {"type": "plan_start", "payload": {"query": rewritten_query}}
+
+    # 检索长期记忆
+    long_term_context = agent.memory.search_long_term(rewritten_query)
 
     memory_ctx = agent.memory.get_context(max_entries=10)
-    actions = agent.planning.generate_action_plan(query, memory_ctx)
+    if long_term_context:
+        lt_text = "长期记忆（用户偏好/历史信息）:\n" + "\n".join(f"- {m}" for m in long_term_context)
+        memory_ctx = lt_text + "\n\n" + memory_ctx
+    actions = agent.planning.generate_action_plan(rewritten_query, memory_ctx)
 
     action_list = [
         {"tool": a.get("tool", ""), "query": a.get("query", "")}
@@ -655,10 +677,15 @@ def _execute_and_stream(query: str) -> Generator[Dict[str, Any], None, None]:
     # 阶段 2: 闲聊路径（空 Action List）
     # ------------------------------------------------------------------
     if not actions:
-        answer = agent._chat_reply(query)  # pylint: disable=protected-access
-        agent.memory.add(answer, content_type="final_answer")
-        yield {"type": "answer", "payload": {"answer": answer}}
-        yield _build_done_event(agent, answer)
+        yield {"type": "answer_start", "payload": {}}
+        full = ""
+        for token in agent._chat_reply_stream(query):  # pylint: disable=protected-access
+            full += token
+            yield {"type": "token", "payload": {"text": token}}
+        agent.memory.add(full, content_type="final_answer")
+        agent.memory.extract_and_save_preferences(query, full)
+        yield {"type": "answer_end", "payload": {"answer": full}}
+        yield _build_done_event(agent, full)
         return
 
     # ------------------------------------------------------------------
@@ -695,10 +722,32 @@ def _execute_and_stream(query: str) -> Generator[Dict[str, Any], None, None]:
         )
 
     # ------------------------------------------------------------------
-    # 阶段 4: 生成初步答案
+    # 阶段 4: 生成前优化 + 流式生成初步答案
     # ------------------------------------------------------------------
-    current_answer = agent._generate_answer(query, exec_results)  # pylint: disable=protected-access
-    yield {"type": "answer", "payload": {"answer": current_answer}}
+    # 上下文压缩（阻塞操作，在 answer_start 前完成，保证流式首 token 低延迟）
+    compressed_results = agent._compress_contexts(rewritten_query, exec_results)  # pylint: disable=protected-access
+    filtered_results = agent._filter_redundant_results(compressed_results)  # pylint: disable=protected-access
+    if len(filtered_results) < len(exec_results):
+        logger.info("冗余过滤: %d -> %d 条结果", len(exec_results), len(filtered_results))
+
+    yield {"type": "answer_start", "payload": {}}
+    current_answer = ""
+    for token in agent._generate_answer_stream(  # pylint: disable=protected-access
+        rewritten_query, filtered_results,
+        dialogue_context=agent.memory.get_dialogue_for_answer_context(),
+        long_term_context=long_term_context,
+    ):
+        current_answer += token
+        yield {"type": "token", "payload": {"text": token}}
+    yield {"type": "answer_end", "payload": {"answer": current_answer}}
+
+    # 生成侧优化: 引用真实性校验
+    verified_answer, citations_ok = agent._verify_citations(  # pylint: disable=protected-access
+        current_answer, filtered_results, rewritten_query,
+    )
+    if not citations_ok:
+        current_answer = verified_answer
+        yield {"type": "citation_warning", "payload": {"answer": verified_answer}}
 
     # ------------------------------------------------------------------
     # 阶段 5: 反思迭代
@@ -706,7 +755,7 @@ def _execute_and_stream(query: str) -> Generator[Dict[str, Any], None, None]:
     agent.reflection.reset()
     for iteration in range(config.reflection_max_iterations):
         should_continue, new_actions = agent.reflection.evaluate_and_refine(
-            query=query,
+            query=rewritten_query,
             current_answer=current_answer,
             memory_context=agent.memory.get_context(),
         )
@@ -758,14 +807,33 @@ def _execute_and_stream(query: str) -> Generator[Dict[str, Any], None, None]:
                 },
             }
 
-        # 重新生成答案
-        current_answer = agent._generate_answer(query, exec_results)  # pylint: disable=protected-access
-        yield {"type": "answer", "payload": {"answer": current_answer}}
+        # 重新生成答案（流式）—— 替换上一条 agent 消息
+        compressed_iter = agent._compress_contexts(rewritten_query, exec_results)  # pylint: disable=protected-access
+        filtered_iter = agent._filter_redundant_results(compressed_iter)  # pylint: disable=protected-access
+        yield {"type": "answer_start", "payload": {"replace": True}}
+        current_answer = ""
+        for token in agent._generate_answer_stream(  # pylint: disable=protected-access
+            rewritten_query, filtered_iter,
+            dialogue_context=agent.memory.get_dialogue_for_answer_context(),
+            long_term_context=long_term_context,
+        ):
+            current_answer += token
+            yield {"type": "token", "payload": {"text": token}}
+        yield {"type": "answer_end", "payload": {"answer": current_answer}}
+
+        # 生成侧优化: 引用真实性校验
+        verified_answer, citations_ok = agent._verify_citations(  # pylint: disable=protected-access
+            current_answer, filtered_iter, rewritten_query,
+        )
+        if not citations_ok:
+            current_answer = verified_answer
+            yield {"type": "citation_warning", "payload": {"answer": verified_answer}}
 
     # ------------------------------------------------------------------
     # 阶段 6: 完成
     # ------------------------------------------------------------------
     agent.memory.add(current_answer, content_type="final_answer")
+    agent.memory.extract_and_save_preferences(query, current_answer)
     yield _build_done_event(agent, current_answer)
 
 
@@ -819,27 +887,43 @@ def _execute_single_action(
         }
 
 
-def _extract_sources_from_agent(agent: AutoSalesAgent) -> List[str]:
-    """从 Agent 短期记忆中提取去重后的信息来源文本。
+def _extract_sources_from_agent(agent: AutoSalesAgent) -> List[Dict[str, Any]]:
+    """从 Agent 短期记忆中提取去重后的结构化信息来源。
 
     Args:
         agent: Agent 实例。
 
     Returns:
-        List[str]: 去重后的来源文本片段列表（每条最长 1000 字符）。
+        List[Dict]: 结构化来源列表，每项含 text/tool/score/title 字段。
     """
     raw = agent.get_state()
     memory = raw.get("memory", [])
-    sources: List[str] = []
+    sources: List[Dict[str, Any]] = []
     seen: Set[str] = set()
 
     for entry in memory:
         if entry.get("type") == "tool_result":
             content = entry.get("content", "")
             dedup_key = content[:200]
-            if dedup_key not in seen:
-                seen.add(dedup_key)
-                sources.append(content[:1000])
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+
+            # 解析 "[tool_name] result_text..." 格式
+            tool = "检索"
+            text = content[:1000]
+            if content.startswith("[") and "]" in content:
+                bracket_end = content.index("]")
+                tool = content[1:bracket_end]
+                text = content[bracket_end + 1:].strip()[:1000]
+
+            sources.append({
+                "text": text,
+                "tool": tool,
+                "score": None,
+                "title": tool,
+                "url": None,
+            })
 
     return sources
 
