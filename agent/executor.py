@@ -142,6 +142,38 @@ class Executor:
         logger.info("所有 Action 执行完毕，共 %d 个结果", len(results))
         return results
 
+    def execute_parallel(
+        self,
+        action_groups: List[List[Dict[str, str]]],
+    ) -> List[List[Dict[str, Any]]]:
+        """并行执行多组 Action List.
+
+        每组内的 Actions 串行执行，组间并行.
+        依赖 asyncio 并发模型.
+
+        Args:
+            action_groups: 多组 Action 列表.
+
+        Returns:
+            List[List[Dict]]: 每组的结果列表.
+        """
+        import asyncio
+
+        async def _run_group(actions: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+            return self.execute(actions)
+
+        async def _run_all():
+            tasks = [_run_group(group) for group in action_groups]
+            return await asyncio.gather(*tasks)
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        return loop.run_until_complete(_run_all())
+
     def get_tool_names(self) -> List[str]:
         """获取已注册的工具名称列表。
 
