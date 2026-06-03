@@ -8,6 +8,11 @@ AutoSalesAgent 全局配置模块。
 from __future__ import annotations
 
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载 .env（使用 config.py 所在目录的绝对路径，不依赖 CWD）
+load_dotenv(Path(__file__).resolve().parent / ".env")
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -41,60 +46,16 @@ class Config:
     llm_max_tokens: int = 2048
 
     # =========================================================================
-    # Embedding 配置（默认本地 BGE-M3，也支持远程 API）
-    # =========================================================================
-    embedding_api_url: str = field(
-        default_factory=lambda: os.getenv(
-            "EMBEDDING_API_URL",
-            "https://api.deepseek.com/v1",
-        )
-    )
-    embedding_api_key: str = field(
-        default_factory=lambda: os.getenv(
-            "EMBEDDING_API_KEY",
-            "sk-your-deepseek-api-key-here",  # 替换为你的 DeepSeek API Key
-        )
-    )
-    embedding_model: str = field(
-        default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-v1")
-    )
-    embedding_dim: int = 1024  # BGE-M3 输出维度
-    embedding_provider: str = field(
-        default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "local")
-    )  # "local" / "deepseek" / "qwen"
-
-    # =========================================================================
-    # 本地 Embedding 配置（BGE-M3 via sentence-transformers）
+    # Embedding 配置（仅本地 BGE-M3）
     # =========================================================================
     local_embedding_model: str = field(
         default_factory=lambda: os.getenv("LOCAL_EMBEDDING_MODEL", "BAAI/bge-m3")
     )
+    embedding_dim: int = 1024  # BGE-M3 输出维度
     local_embedding_dim: int = 1024
     local_embedding_device: str = field(
-        default_factory=lambda: os.getenv("LOCAL_EMBEDDING_DEVICE", "cpu")
+        default_factory=lambda: os.getenv("LOCAL_EMBEDDING_DEVICE", "cuda")
     )  # "cpu" / "cuda" / "mps"
-
-    # =========================================================================
-    # DeepSeek Embedding 配置（OpenAI 兼容接口）
-    # =========================================================================
-    deepseek_api_key: str = field(
-        default_factory=lambda: os.getenv(
-            "DEEPSEEK_API_KEY",
-            "sk-your-deepseek-api-key-here",  # 替换为你的 DeepSeek API Key
-        )
-    )
-    deepseek_api_url: str = field(
-        default_factory=lambda: os.getenv(
-            "DEEPSEEK_API_URL",
-            "https://api.deepseek.com/v1",
-        )
-    )
-    deepseek_embedding_model: str = field(
-        default_factory=lambda: os.getenv(
-            "DEEPSEEK_EMBEDDING_MODEL",
-            "deepseek-embed",
-        )
-    )
 
     # =========================================================================
     # Milvus 向量数据库配置
@@ -114,6 +75,12 @@ class Config:
     # =========================================================================
     memory_compress_threshold: int = 2000  # 字符数阈值，超过后触发压缩
     memory_max_messages: int = 20
+
+    # =========================================================================
+    # 长期记忆参数
+    # =========================================================================
+    long_term_memory_collection_name: str = "user_long_term_memory"
+    long_term_memory_top_k: int = 5
 
     # =========================================================================
     # 反思模块参数
@@ -151,6 +118,59 @@ class Config:
     log_level: str = "INFO"
     log_format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
+    # =========================================================================
+    # Redis 配置
+    # =========================================================================
+    redis_url: str = field(
+        default_factory=lambda: os.getenv(
+            "REDIS_URL",
+            "redis://localhost:6379/0",
+        )
+    )
+    redis_session_ttl: int = 3600
+    redis_cache_ttl_vehicle: int = 600
+    redis_cache_ttl_rag: int = 300
+
+    # =========================================================================
+    # RabbitMQ 配置
+    # =========================================================================
+    rabbitmq_url: str = field(
+        default_factory=lambda: os.getenv(
+            "RABBITMQ_URL",
+            "amqp://guest:guest@localhost:5672/",
+        )
+    )
+    rabbitmq_exchange: str = "api.requests"
+    rabbitmq_queues: dict = field(default_factory=lambda: {
+        "vehicle.query": {
+            "prefetch_count": 20,
+            "max_length": 10000,
+            "message_ttl": 30000,
+        },
+        "vehicle.compare": {
+            "prefetch_count": 10,
+            "max_length": 5000,
+            "message_ttl": 60000,
+        },
+        "recommend": {
+            "prefetch_count": 10,
+            "max_length": 5000,
+            "message_ttl": 60000,
+        },
+    })
+
+    # =========================================================================
+    # LLM 连接池配置
+    # =========================================================================
+    llm_pool_size: int = 20
+    llm_pool_timeout: float = 30.0
+
+    # =========================================================================
+    # 限流配置
+    # =========================================================================
+    rate_limit_default_rps: int = 100        # 每 API Key 默认每秒请求数
+    rate_limit_window_seconds: int = 1       # 滑动窗口大小
+
     def validate(self) -> bool:
         """检查关键配置是否已填写（非占位符值）。
 
@@ -186,10 +206,10 @@ class Config:
         allowed_keys = {
             "llm_api_key", "llm_api_url", "llm_model",
             "llm_temperature", "llm_max_tokens",
-            "embedding_api_key", "embedding_api_url", "embedding_model",
-            "embedding_provider",
-            "deepseek_api_key", "deepseek_api_url", "deepseek_embedding_model",
+            "local_embedding_model", "local_embedding_device",
             "serpapi_key", "llamaparse_api_key",
+            "redis_url", "rabbitmq_url",               # 新增
+            "llm_pool_size", "llm_pool_timeout",       # 新增
         }
         updated: list[str] = []
         for key, value in data.items():
