@@ -131,9 +131,15 @@ export async function updateConfig(data: UpdateConfigPayload): Promise<{ status:
 export async function uploadPdf(file: File): Promise<PdfUploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   const res = await fetch('/api/upload-pdf', {
     method: 'POST',
     body: formData,
+    headers,
   });
   if (!res.ok) {
     throw new Error(`Upload failed: ${res.status}`);
