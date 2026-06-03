@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import tempfile
 import time
 from contextlib import asynccontextmanager
-from typing import Dict
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import redis.asyncio as redis
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from config import config
 from gateway.auth import verify_api_key
@@ -190,3 +194,230 @@ async def session_close(
         session_id=req.session_id,
         status="success",
     )
+
+
+# =========================================================================
+# 管理接口 — 配置 / 索引 / 评测 (兼容旧版前端)
+# =========================================================================
+
+# --- Schemas ---
+
+class ConfigSettings(BaseModel):
+    llm_api_key: str = ""
+    serpapi_key: str = ""
+    llamaparse_api_key: str = ""
+    embedding_model: str = ""
+    llm_model: str = ""
+    llm_api_url: str = ""
+    llm_temperature: float = 0.1
+    llm_max_tokens: int = 2048
+
+
+class UpdateConfigRequest(BaseModel):
+    llm_api_key: Optional[str] = None
+    serpapi_key: Optional[str] = None
+    llamaparse_api_key: Optional[str] = None
+    llm_model: Optional[str] = None
+    llm_api_url: Optional[str] = None
+    llm_temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
+    llm_max_tokens: Optional[int] = Field(None, ge=1, le=32768)
+
+
+class PdfUploadResponse(BaseModel):
+    status: str
+    filename: str = ""
+    chunks: int = 0
+    message: str = ""
+
+
+class EvalRunRequest(BaseModel):
+    dataset_name: str = Field(..., min_length=1)
+    retrieval_mode: str = Field("hybrid", pattern="^(dense|sparse|hybrid)$")
+    top_k: int = Field(5, ge=1, le=50)
+    generate_answers: bool = Field(True)
+
+
+class DatasetItem(BaseModel):
+    name: str
+    total_samples: int
+    by_type: dict
+    by_difficulty: dict
+
+
+# --- Agent 单例 (管理接口用, 非高并发路径) ---
+
+_agent: Any = None
+
+
+def _get_agent() -> Any:
+    """获取 AutoSalesAgent 单例 (仅管理接口)."""
+    global _agent
+    if _agent is None:
+        from agent.agent_core import AutoSalesAgent
+        logger.info("AutoSalesAgent 管理单例初始化中 ...")
+        _agent = AutoSalesAgent()
+        logger.info("管理单例就绪, 工具: %s", _agent.executor.get_tool_names())
+    return _agent
+
+
+def _mask_api_key(key: str) -> str:
+    """脱敏 API Key."""
+    if not key or "your-" in key:
+        return ""
+    if len(key) <= 8:
+        return "***"
+    return key[:3] + "***" + key[-4:]
+
+
+# --- 配置 ---
+
+@app.get("/api/config")
+async def get_config():
+    return ConfigSettings(
+        llm_api_key=_mask_api_key(config.llm_api_key),
+        serpapi_key=_mask_api_key(config.serpapi_key),
+        llamaparse_api_key=_mask_api_key(config.llamaparse_api_key),
+        embedding_model=config.local_embedding_model,
+        llm_model=config.llm_model,
+        llm_api_url=config.llm_api_url,
+        llm_temperature=config.llm_temperature,
+        llm_max_tokens=config.llm_max_tokens,
+    )
+
+
+@app.put("/api/config")
+async def update_config(request: UpdateConfigRequest):
+    data = {k: v for k, v in request.model_dump().items() if v is not None}
+    if not data:
+        return {"status": "ok", "updated": []}
+    updated = config.update_from_dict(data)
+    agent = _get_agent()
+    if any(k in updated for k in ("llm_api_key", "llm_api_url", "llm_model")):
+        from openai import OpenAI
+        new_client = OpenAI(api_key=config.llm_api_key, base_url=config.llm_api_url)
+        agent.llm_client = new_client
+        agent.rag_tool.llm_client = new_client
+        agent.planning.llm_client = new_client
+        agent.reflection.llm_client = new_client
+        agent.memory.llm_client = new_client
+    logger.info("配置已更新: %s", updated)
+    return {"status": "ok", "updated": updated}
+
+
+# --- PDF 上传 ---
+
+@app.post("/api/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        return PdfUploadResponse(status="error", filename=file.filename or "", message="仅支持 PDF 文件")
+    agent = _get_agent()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+    try:
+        chunk_count = agent.index_knowledge_base(tmp_path)
+        logger.info("PDF 上传索引: %s -> %d 块", file.filename, chunk_count)
+        return PdfUploadResponse(status="success", filename=file.filename, chunks=chunk_count, message=f"已切分为 {chunk_count} 块")
+    except Exception as exc:
+        logger.error("PDF 上传失败: %s", exc)
+        return PdfUploadResponse(status="error", filename=file.filename, message=str(exc))
+    finally:
+        try:
+            Path(tmp_path).unlink()
+        except OSError:
+            pass
+
+
+# --- Agent 状态 ---
+
+@app.get("/api/state")
+async def get_state():
+    agent = _get_agent()
+    raw = agent.get_state()
+    return {
+        "memory": raw.get("memory", []),
+        "tools": raw.get("tools", []),
+        "rag_indexed": bool(raw.get("rag_indexed", False)),
+        "iteration_count": int(raw.get("iteration_count", 0)),
+    }
+
+
+# --- RAG 评测 ---
+
+@app.get("/api/eval/datasets")
+async def get_eval_datasets():
+    from eval.dataset import GoldenDataset
+    datasets_dir = Path(__file__).resolve().parent.parent / "eval" / "datasets"
+    items: List[DatasetItem] = []
+    if not datasets_dir.exists():
+        return items
+    for f in sorted(datasets_dir.glob("*.json")):
+        try:
+            ds = GoldenDataset.load(f)
+            summary = ds.summary()
+            items.append(DatasetItem(
+                name=f.name,
+                total_samples=summary["total_samples"],
+                by_type=summary.get("by_type", {}),
+                by_difficulty=summary.get("by_difficulty", {}),
+            ))
+        except Exception as exc:
+            logger.warning("加载数据集失败: %s - %s", f.name, exc)
+    return items
+
+
+@app.post("/api/eval/run")
+async def run_eval(request: EvalRunRequest):
+    from eval.dataset import GoldenDataset
+    from eval.runner import EvalRunner
+    agent = _get_agent()
+    state = agent.get_state()
+    if not state.get("rag_indexed", False):
+        raise HTTPException(status_code=400, detail="请先索引知识库（上传 PDF）")
+    datasets_dir = Path(__file__).resolve().parent.parent / "eval" / "datasets"
+    dataset_path = datasets_dir / request.dataset_name
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail=f"数据集不存在: {request.dataset_name}")
+    try:
+        dataset = GoldenDataset.load(dataset_path)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"数据集加载失败: {exc}")
+    try:
+        runner = EvalRunner(rag_tool=agent.rag_tool, top_k=request.top_k)
+        report = runner.run(dataset, retrieval_mode=request.retrieval_mode, generate_answers=request.generate_answers)
+        return report.to_dict()
+    except Exception as exc:
+        logger.error("评测失败: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"评测运行失败: {exc}")
+
+
+@app.post("/api/eval/sweep")
+async def run_eval_sweep(request: EvalRunRequest):
+    from eval.dataset import GoldenDataset
+    from eval.runner import EvalRunner
+    agent = _get_agent()
+    state = agent.get_state()
+    if not state.get("rag_indexed", False):
+        raise HTTPException(status_code=400, detail="请先索引知识库（上传 PDF）")
+    datasets_dir = Path(__file__).resolve().parent.parent / "eval" / "datasets"
+    dataset_path = datasets_dir / request.dataset_name
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail=f"数据集不存在: {request.dataset_name}")
+    try:
+        dataset = GoldenDataset.load(dataset_path)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"数据集加载失败: {exc}")
+    try:
+        runner = EvalRunner(rag_tool=agent.rag_tool, top_k=request.top_k)
+        reports = runner.sweep_weights(dataset, generate_answers=request.generate_answers)
+        return [r.to_dict() for r in reports]
+    except Exception as exc:
+        logger.error("权重扫描失败: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"权重扫描失败: {exc}")
+
+
+# --- 兼容旧版 ---
+
+@app.get("/api/health")
+async def health_legacy():
+    return {"status": "ok"}
