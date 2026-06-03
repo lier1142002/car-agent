@@ -1,46 +1,40 @@
 import React from 'react';
-import { Button, App } from 'antd';
-import { ClearOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Space, Tag, Tooltip } from 'antd';
+import { ClearOutlined, PlusOutlined, ApiOutlined } from '@ant-design/icons';
 import { useApp } from '../../store/AppContext';
 import styles from '../../styles/Chat.module.css';
 
+const MODE_LABELS: Record<string, string> = {
+  chat: '💬 车型查询',
+  compare: '📊 多车对比',
+  recommend: '🎯 智能推荐',
+};
+
 export const ChatHeader: React.FC = () => {
-  const { state, clearCurrentSession, refreshAgentState } = useApp();
-  const { message } = App.useApp();
-
-  const handleClear = async () => {
-    await clearCurrentSession();
-    message.success('会话已清空');
-  };
-
-  const handleRefresh = async () => {
-    await refreshAgentState();
-    message.success('状态已刷新');
-  };
-
-  const activeConv = state.conversations.find(c => c.id === state.activeId);
+  const { state, startNewConversation, clearCurrentSession } = useApp();
 
   return (
-    <div className={styles.header}>
-      <span className={styles.headerTitle}>
-        💬 {activeConv?.title ?? '对话'}
-      </span>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <Button
-          size="small"
-          icon={<ReloadOutlined />}
-          onClick={handleRefresh}
-          type="text"
-          style={{ color: 'var(--text-secondary)' }}
-        />
-        <Button
-          size="small"
-          icon={<ClearOutlined />}
-          onClick={handleClear}
-          type="text"
-          style={{ color: 'var(--text-secondary)' }}
-        />
-      </div>
+    <div className={styles.chatHeader}>
+      <Space>
+        <ApiOutlined />
+        <span style={{ fontWeight: 600 }}>AutoSales Agent</span>
+        <Tag color="blue">{MODE_LABELS[state.inputMode] || state.inputMode}</Tag>
+        {state.sessionId && (
+          <Tooltip title={`Session: ${state.sessionId}`}>
+            <Tag color="green" style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {state.sessionId.slice(0, 12)}...
+            </Tag>
+          </Tooltip>
+        )}
+      </Space>
+      <Space>
+        <Button icon={<PlusOutlined />} size="small" onClick={startNewConversation}>
+          新对话
+        </Button>
+        <Button icon={<ClearOutlined />} size="small" onClick={clearCurrentSession}>
+          清空会话
+        </Button>
+      </Space>
     </div>
   );
 };

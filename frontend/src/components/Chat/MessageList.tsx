@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useApp } from '../../store/AppContext';
 import { UserMessage } from './UserMessage';
 import { AgentMessage } from './AgentMessage';
@@ -15,21 +15,14 @@ export const MessageList: React.FC = () => {
   return (
     <div className={styles.messageList}>
       {state.messages.length === 0 && (
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--text-muted)',
-          fontSize: 15,
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🚗</div>
-            <div>欢迎使用 AutoSalesAgent</div>
-            <div style={{ fontSize: 12, marginTop: 8, color: 'var(--text-muted)' }}>
-              我可以帮您查询汽车参数、对比车型、计算购车费用
-            </div>
-          </div>
+        <div className={styles.emptyState}>
+          <h3>👋 欢迎使用 AutoSales Agent</h3>
+          <p>选择模式开始:</p>
+          <ul>
+            <li>💬 <strong>车型查询</strong> — 查询任意车型参数、配置、报价</li>
+            <li>📊 <strong>多车对比</strong> — 输入多个车型进行横向对比分析</li>
+            <li>🎯 <strong>智能推荐</strong> — 根据场景和预算获得购车推荐</li>
+          </ul>
         </div>
       )}
       {state.messages.map(msg => (
