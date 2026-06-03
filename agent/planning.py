@@ -13,8 +13,6 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
-
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -36,12 +34,19 @@ class PlanningModule:
         system_prompt: 加载的 Few-shot 系统提示词。
     """
 
-    def __init__(self) -> None:
-        """初始化规划模块，加载提示词。"""
-        self.llm_client = OpenAI(
-            api_key=config.llm_api_key,
-            base_url=config.llm_api_url,
-        )
+    def __init__(self, llm_client: Optional[Any] = None) -> None:
+        """初始化规划模块.
+
+        Args:
+            llm_client: 异步 LLM 调用接口 (如 LLMPool). 若为 None 则创建同步 OpenAI 客户端 (向后兼容).
+        """
+        self.llm_client = llm_client
+        if self.llm_client is None:
+            from openai import OpenAI
+            self.llm_client = OpenAI(
+                api_key=config.llm_api_key,
+                base_url=config.llm_api_url,
+            )
         self.system_prompt = self._load_plan_prompt()
         logger.info("PlanningModule 已初始化")
 
@@ -88,7 +93,7 @@ class PlanningModule:
             return actions
 
         except Exception as e:
-            logger.error("规划生成失败: %s", e)
+            logger.error("规划生成失败: %s", e, exc_info=True)
             # 降级：默认使用 RAG 工具
             return [{"tool": "rag_tool", "query": query}]
 

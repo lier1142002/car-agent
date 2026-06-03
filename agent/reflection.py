@@ -13,8 +13,6 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from openai import OpenAI
-
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -39,12 +37,19 @@ class ReflectionModule:
         iteration_count: 当前已迭代次数。
     """
 
-    def __init__(self) -> None:
-        """初始化反思模块。"""
-        self.llm_client = OpenAI(
-            api_key=config.llm_api_key,
-            base_url=config.llm_api_url,
-        )
+    def __init__(self, llm_client: Optional[Any] = None) -> None:
+        """初始化反思模块.
+
+        Args:
+            llm_client: 异步 LLM 调用接口 (如 LLMPool). 若为 None 则创建同步 OpenAI 客户端.
+        """
+        self.llm_client = llm_client
+        if self.llm_client is None:
+            from openai import OpenAI
+            self.llm_client = OpenAI(
+                api_key=config.llm_api_key,
+                base_url=config.llm_api_url,
+            )
         self.system_prompt = self._load_reflection_prompt()
         self.max_iterations = config.reflection_max_iterations
         self.quality_threshold = config.reflection_quality_threshold
@@ -137,7 +142,7 @@ class ReflectionModule:
             return needs_iteration, suggested_actions
 
         except Exception as e:
-            logger.error("反思评估失败: %s", e)
+            logger.error("反思评估失败: %s", e, exc_info=True)
             return False, []
 
     def reset(self) -> None:
