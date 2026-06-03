@@ -1,4 +1,4 @@
-"""FastAPI Gateway 应用 — 路由 + 生命周期."""
+"""FastAPI Gateway 应用 — 路由 + 生命周期 + 用户认证."""
 
 from __future__ import annotations
 
@@ -16,7 +16,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from config import config
-from gateway.auth import verify_api_key
+from gateway.auth import (
+    UserStore, UserRegister, UserLogin,
+    get_current_user,
+)
 from gateway.publisher import RabbitMQPublisher
 from gateway.rate_limit import RateLimiter
 from gateway.schemas import (
@@ -36,16 +39,18 @@ logger = logging.getLogger(__name__)
 _publisher: RabbitMQPublisher
 _rate_limiter: RateLimiter
 _redis: redis.Redis
+_user_store: UserStore
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用启动/关闭钩子."""
-    global _publisher, _rate_limiter, _redis
+    global _publisher, _rate_limiter, _redis, _user_store
 
     logger.info("Gateway 启动中...")
     _redis = redis.from_url(config.redis_url, decode_responses=True)
     _rate_limiter = RateLimiter(_redis)
+    _user_store = UserStore(_redis)
     _publisher = RabbitMQPublisher()
     await _publisher.connect()
     logger.info("Gateway 启动完成")
@@ -72,22 +77,49 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
-# 辅助: 通用请求处理
-# ---------------------------------------------------------------------------
+# =========================================================================
+# 认证端点
+# =========================================================================
+
+@app.post("/api/auth/register")
+async def auth_register(req: UserRegister):
+    """用户注册."""
+    ok = await _user_store.register(req.username, req.password)
+    if not ok:
+        raise HTTPException(status_code=409, detail="用户名已存在")
+    token = create_jwt_from_module(req.username)
+    return {"status": "ok", "token": token, "username": req.username}
+
+
+@app.post("/api/auth/login")
+async def auth_login(req: UserLogin):
+    """用户登录."""
+    valid = await _user_store.verify_password(req.username, req.password)
+    if not valid:
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    token = create_jwt_from_module(req.username)
+    return {"status": "ok", "token": token, "username": req.username}
+
+
+# =========================================================================
+# v1 API — 通用请求处理
+# =========================================================================
+
 async def _handle_request(
     routing_key: str,
     payload: dict,
     session_id: str,
-    api_key_info: dict,
+    user: dict,
     endpoint: str,
 ) -> ApiResponse:
-    """通用请求处理: 限流 → 发布 → 等待回复."""
+    """通用请求处理: 限流 → 注入用户 API keys → 发布 → 等待回复."""
+    username = user.get("username", "unknown")
+
     # 限流
     allowed = await _rate_limiter.check_and_increment(
-        api_key=api_key_info.get("user_id", "unknown"),
+        api_key=username,
         endpoint=endpoint,
-        max_rps=api_key_info.get("rate_limit_rps", config.rate_limit_default_rps),
+        max_rps=user.get("rate_limit_rps", config.rate_limit_default_rps),
     )
     if not allowed:
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
@@ -111,9 +143,10 @@ async def _handle_request(
     )
 
 
-# ---------------------------------------------------------------------------
+# =========================================================================
 # 健康检查
-# ---------------------------------------------------------------------------
+# =========================================================================
+
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     redis_ok = "ok"
@@ -129,19 +162,20 @@ async def health() -> HealthResponse:
     )
 
 
-# ---------------------------------------------------------------------------
-# API v1 路由
-# ---------------------------------------------------------------------------
+# =========================================================================
+# v1 业务路由 (需 JWT 认证)
+# =========================================================================
+
 @app.post("/api/v1/vehicle/query", response_model=ApiResponse)
 async def vehicle_query(
     req: VehicleQueryRequest,
-    api_key_info: dict = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
 ) -> ApiResponse:
     return await _handle_request(
         routing_key="vehicle.query",
         payload={"query": req.query},
         session_id=req.session_id,
-        api_key_info=api_key_info,
+        user=user,
         endpoint="vehicle.query",
     )
 
@@ -149,13 +183,13 @@ async def vehicle_query(
 @app.post("/api/v1/vehicle/compare", response_model=ApiResponse)
 async def vehicle_compare(
     req: VehicleCompareRequest,
-    api_key_info: dict = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
 ) -> ApiResponse:
     return await _handle_request(
         routing_key="vehicle.compare",
         payload={"vehicles": req.vehicles, "aspects": req.aspects},
         session_id=req.session_id,
-        api_key_info=api_key_info,
+        user=user,
         endpoint="vehicle.compare",
     )
 
@@ -163,7 +197,7 @@ async def vehicle_compare(
 @app.post("/api/v1/recommend", response_model=ApiResponse)
 async def recommend(
     req: RecommendRequest,
-    api_key_info: dict = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
 ) -> ApiResponse:
     return await _handle_request(
         routing_key="recommend",
@@ -173,46 +207,48 @@ async def recommend(
             "preferences": req.preferences,
         },
         session_id=req.session_id,
-        api_key_info=api_key_info,
+        user=user,
         endpoint="recommend",
     )
 
 
+# =========================================================================
+# 会话管理 (需 JWT 认证)
+# =========================================================================
+
 @app.post("/api/v1/session/create", response_model=ApiResponse)
 async def session_create(
-    api_key_info: dict = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
 ) -> ApiResponse:
-    """创建新会话, 返回 session_id."""
+    """创建新会话."""
     import uuid as _uuid
-    user_id = api_key_info.get("user_id", "default_user")
+    username = user.get("username", "default_user")
     session_id = f"sess_{_uuid.uuid4().hex[:16]}"
 
-    # 初始化 session 元数据
     await _redis.hset(f"session:{session_id}", mapping={
-        "user_id": user_id,
+        "user_id": username,
         "created_at": str(time.time()),
         "message_count": "0",
     })
     await _redis.expire(f"session:{session_id}", config.redis_session_ttl)
-    # 注册到用户会话列表
-    await _redis.sadd(f"user:{user_id}:sessions", session_id)
+    await _redis.sadd(f"user:{username}:sessions", session_id)
 
-    logger.info("会话已创建: session=%s user=%s", session_id, user_id)
+    logger.info("会话已创建: session=%s user=%s", session_id, username)
     return ApiResponse(
         request_id="",
         session_id=session_id,
         status="success",
-        data={"session_id": session_id, "user_id": user_id},
+        data={"session_id": session_id, "user_id": username},
     )
 
 
 @app.get("/api/v1/sessions")
 async def list_sessions(
-    api_key_info: dict = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
 ):
     """列出当前用户的所有活跃会话."""
-    user_id = api_key_info.get("user_id", "default_user")
-    session_ids = await _redis.smembers(f"user:{user_id}:sessions")
+    username = user.get("username", "default_user")
+    session_ids = await _redis.smembers(f"user:{username}:sessions")
     sessions = []
     for sid in session_ids:
         meta = await _redis.hgetall(f"session:{sid}")
@@ -224,13 +260,13 @@ async def list_sessions(
                 "created_at": meta.get("created_at", ""),
             })
     sessions.sort(key=lambda s: s.get("created_at", ""), reverse=True)
-    return {"sessions": sessions, "user_id": user_id}
+    return {"sessions": sessions, "user_id": username}
 
 
 @app.post("/api/v1/session/close", response_model=ApiResponse)
 async def session_close(
     req: SessionCloseRequest,
-    api_key_info: dict = Depends(verify_api_key),
+    user: dict = Depends(get_current_user),
 ) -> ApiResponse:
     await _redis.delete(
         f"session:{req.session_id}",
@@ -247,7 +283,7 @@ async def session_close(
 
 
 # =========================================================================
-# 管理接口 — 配置 / 索引 / 评测 (兼容旧版前端)
+# 管理接口 — 用户配置 (需 JWT 认证)
 # =========================================================================
 
 # --- Schemas ---
@@ -261,16 +297,6 @@ class ConfigSettings(BaseModel):
     llm_api_url: str = ""
     llm_temperature: float = 0.1
     llm_max_tokens: int = 2048
-
-
-class UpdateConfigRequest(BaseModel):
-    llm_api_key: Optional[str] = None
-    serpapi_key: Optional[str] = None
-    llamaparse_api_key: Optional[str] = None
-    llm_model: Optional[str] = None
-    llm_api_url: Optional[str] = None
-    llm_temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
-    llm_max_tokens: Optional[int] = Field(None, ge=1, le=32768)
 
 
 class PdfUploadResponse(BaseModel):
@@ -294,24 +320,22 @@ class DatasetItem(BaseModel):
     by_difficulty: dict
 
 
-# --- Agent 单例 (管理接口用, 非高并发路径) ---
+# --- Agent 单例 (管理接口用) ---
 
 _agent: Any = None
 
 
 def _get_agent() -> Any:
-    """获取 AutoSalesAgent 单例 (仅管理接口)."""
     global _agent
     if _agent is None:
         from agent.agent_core import AutoSalesAgent
         logger.info("AutoSalesAgent 管理单例初始化中 ...")
         _agent = AutoSalesAgent()
-        logger.info("管理单例就绪, 工具: %s", _agent.executor.get_tool_names())
+        logger.info("管理单例就绪: %s", _agent.executor.get_tool_names())
     return _agent
 
 
 def _mask_api_key(key: str) -> str:
-    """脱敏 API Key."""
     if not key or "your-" in key:
         return ""
     if len(key) <= 8:
@@ -319,10 +343,11 @@ def _mask_api_key(key: str) -> str:
     return key[:3] + "***" + key[-4:]
 
 
-# --- 配置 ---
+# --- 全局配置 (只读, 所有用户共享 .env) ---
 
 @app.get("/api/config")
-async def get_config():
+async def get_config(user: dict = Depends(get_current_user)):
+    """获取全局配置 (脱敏). 所有用户共享 .env 中的 API Key."""
     return ConfigSettings(
         llm_api_key=_mask_api_key(config.llm_api_key),
         serpapi_key=_mask_api_key(config.serpapi_key),
@@ -335,29 +360,10 @@ async def get_config():
     )
 
 
-@app.put("/api/config")
-async def update_config(request: UpdateConfigRequest):
-    data = {k: v for k, v in request.model_dump().items() if v is not None}
-    if not data:
-        return {"status": "ok", "updated": []}
-    updated = config.update_from_dict(data)
-    agent = _get_agent()
-    if any(k in updated for k in ("llm_api_key", "llm_api_url", "llm_model")):
-        from openai import OpenAI
-        new_client = OpenAI(api_key=config.llm_api_key, base_url=config.llm_api_url)
-        agent.llm_client = new_client
-        agent.rag_tool.llm_client = new_client
-        agent.planning.llm_client = new_client
-        agent.reflection.llm_client = new_client
-        agent.memory.llm_client = new_client
-    logger.info("配置已更新: %s", updated)
-    return {"status": "ok", "updated": updated}
-
-
 # --- PDF 上传 ---
 
 @app.post("/api/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         return PdfUploadResponse(status="error", filename=file.filename or "", message="仅支持 PDF 文件")
     agent = _get_agent()
@@ -366,7 +372,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         tmp_path = tmp.name
     try:
         chunk_count = agent.index_knowledge_base(tmp_path)
-        logger.info("PDF 上传索引: %s -> %d 块", file.filename, chunk_count)
+        logger.info("PDF 上传索引: %s -> %d 块 (user=%s)", file.filename, chunk_count, user.get("username"))
         return PdfUploadResponse(status="success", filename=file.filename, chunks=chunk_count, message=f"已切分为 {chunk_count} 块")
     except Exception as exc:
         logger.error("PDF 上传失败: %s", exc)
@@ -381,7 +387,7 @@ async def upload_pdf(file: UploadFile = File(...)):
 # --- Agent 状态 ---
 
 @app.get("/api/state")
-async def get_state():
+async def get_state(user: dict = Depends(get_current_user)):
     agent = _get_agent()
     raw = agent.get_state()
     return {
@@ -395,7 +401,7 @@ async def get_state():
 # --- RAG 评测 ---
 
 @app.get("/api/eval/datasets")
-async def get_eval_datasets():
+async def get_eval_datasets(user: dict = Depends(get_current_user)):
     from eval.dataset import GoldenDataset
     datasets_dir = Path(__file__).resolve().parent.parent / "eval" / "datasets"
     items: List[DatasetItem] = []
@@ -417,13 +423,13 @@ async def get_eval_datasets():
 
 
 @app.post("/api/eval/run")
-async def run_eval(request: EvalRunRequest):
+async def run_eval(request: EvalRunRequest, user: dict = Depends(get_current_user)):
     from eval.dataset import GoldenDataset
     from eval.runner import EvalRunner
     agent = _get_agent()
     state = agent.get_state()
     if not state.get("rag_indexed", False):
-        raise HTTPException(status_code=400, detail="请先索引知识库（上传 PDF）")
+        raise HTTPException(status_code=400, detail="请先索引知识库")
     datasets_dir = Path(__file__).resolve().parent.parent / "eval" / "datasets"
     dataset_path = datasets_dir / request.dataset_name
     if not dataset_path.exists():
@@ -442,13 +448,13 @@ async def run_eval(request: EvalRunRequest):
 
 
 @app.post("/api/eval/sweep")
-async def run_eval_sweep(request: EvalRunRequest):
+async def run_eval_sweep(request: EvalRunRequest, user: dict = Depends(get_current_user)):
     from eval.dataset import GoldenDataset
     from eval.runner import EvalRunner
     agent = _get_agent()
     state = agent.get_state()
     if not state.get("rag_indexed", False):
-        raise HTTPException(status_code=400, detail="请先索引知识库（上传 PDF）")
+        raise HTTPException(status_code=400, detail="请先索引知识库")
     datasets_dir = Path(__file__).resolve().parent.parent / "eval" / "datasets"
     dataset_path = datasets_dir / request.dataset_name
     if not dataset_path.exists():
@@ -471,3 +477,12 @@ async def run_eval_sweep(request: EvalRunRequest):
 @app.get("/api/health")
 async def health_legacy():
     return {"status": "ok"}
+
+
+# =========================================================================
+# 模块内 JWT 创建 (避免循环导入)
+# =========================================================================
+
+def create_jwt_from_module(username: str) -> str:
+    from gateway.auth import create_jwt
+    return create_jwt(username)
