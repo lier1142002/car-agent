@@ -12,7 +12,6 @@ interface Props {
 
 const KEYS: { field: keyof UpdateConfigPayload; label: string; configKey: keyof ConfigSettings }[] = [
   { field: 'llm_api_key', label: 'LLM API Key', configKey: 'llm_api_key' },
-  { field: 'embedding_api_key', label: 'Embedding API Key', configKey: 'embedding_api_key' },
   { field: 'serpapi_key', label: 'SerpAPI Key', configKey: 'serpapi_key' },
   { field: 'llamaparse_api_key', label: 'LlamaParse API Key', configKey: 'llamaparse_api_key' },
 ];
@@ -30,7 +29,7 @@ export const ApiKeyForm: React.FC<Props> = ({ config, loading, onSave }) => {
       setValues(init);
       setDirty(false);
     }
-  }, [config?.llm_api_key, config?.embedding_api_key, config?.serpapi_key, config?.llamaparse_api_key]);
+  }, [config?.llm_api_key, config?.serpapi_key, config?.llamaparse_api_key]);
 
   const handleChange = (field: string, value: string) => {
     setValues(prev => ({ ...prev, [field]: value }));

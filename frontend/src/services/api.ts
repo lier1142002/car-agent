@@ -10,12 +10,42 @@ import type {
 
 const BASE = '/api';
 
+// =========================================================================
+// JWT Token Management
+// =========================================================================
+const TOKEN_KEY = 'agent_car_token';
+
+function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export function isLoggedIn(): boolean {
+  return !!getToken();
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   const res = await fetch(`${BASE}${url}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...options,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      clearToken();
+      window.location.reload();
+    }
     const errorText = await res.text().catch(() => 'Unknown error');
     throw new Error(`API error ${res.status}: ${errorText}`);
   }
@@ -126,5 +156,23 @@ export async function runSweep(data: WeightSweepRequest): Promise<EvalRunRespons
   return request<EvalRunResponse[]>('/eval/sweep', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+// =========================================================================
+// Auth
+// =========================================================================
+
+export async function login(username: string, password: string): Promise<{ status: string; token: string; username: string }> {
+  return request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function register(username: string, password: string): Promise<{ status: string; token: string; username: string }> {
+  return request('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
   });
 }

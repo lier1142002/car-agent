@@ -1,27 +1,40 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { ConfigProvider, theme, App as AntApp } from 'antd';
 import { AppProvider } from './store/AppContext';
-import { ChatPage } from './pages/ChatPage';
+import { AppLayout } from './components/Layout/AppLayout';
+import { LoginPage } from './components/LoginPage';
+import { isLoggedIn, clearToken } from './services/api';
+import './styles/global.css';
 
 const App: React.FC = () => {
+  const [username, setUsername] = useState<string | null>(() => {
+    return isLoggedIn() ? localStorage.getItem('agent_car_username') : null;
+  });
+
+  const handleLogin = useCallback((name: string) => {
+    localStorage.setItem('agent_car_username', name);
+    setUsername(name);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    clearToken();
+    localStorage.removeItem('agent_car_username');
+    setUsername(null);
+  }, []);
+
+  if (!username) {
+    return (
+      <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
+        <LoginPage onLogin={handleLogin} />
+      </ConfigProvider>
+    );
+  }
+
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#58a6ff',
-          colorBgContainer: '#161b22',
-          colorBgElevated: '#1c2333',
-          colorBorder: '#30363d',
-          colorText: '#e6edf3',
-          colorTextSecondary: '#8b949e',
-          borderRadius: 8,
-        },
-      }}
-    >
+    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
       <AntApp>
         <AppProvider>
-          <ChatPage />
+          <AppLayout onLogout={handleLogout} username={username} />
         </AppProvider>
       </AntApp>
     </ConfigProvider>

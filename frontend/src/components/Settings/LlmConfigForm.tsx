@@ -10,7 +10,7 @@ interface Props {
 }
 
 const PRESET_MODELS = [
-  { value: 'deepseek-chat', label: 'deepseek-chat' },
+  { value: 'deepseek-chat', label: 'deepseek-chat (推荐)' },
   { value: 'deepseek-reasoner', label: 'deepseek-reasoner' },
   { value: 'gpt-4o', label: 'gpt-4o' },
   { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },

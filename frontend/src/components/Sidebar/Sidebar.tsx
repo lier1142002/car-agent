@@ -7,11 +7,11 @@ import { useApp } from '../../store/AppContext';
 import styles from '../../styles/Sidebar.module.css';
 
 interface SidebarProps {
-  onOpenSettings: () => void;
-  onOpenEval: () => void;
+  onSettingsClick: () => void;
+  onEvalClick: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onOpenSettings, onOpenEval }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onSettingsClick, onEvalClick }) => {
   const { startNewConversation } = useApp();
 
   return (
@@ -25,10 +25,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenSettings, onOpenEval }) 
       <div className={styles.newConvBtn} onClick={startNewConversation}>
         + 新建对话
       </div>
-      <div className={styles.settingsBtn} onClick={onOpenEval}>
+      <div className={styles.settingsBtn} onClick={onEvalClick}>
         <ExperimentOutlined /> RAG 评测
       </div>
-      <div className={styles.settingsBtn} onClick={onOpenSettings}>
+      <div className={styles.settingsBtn} onClick={onSettingsClick}>
         <SettingOutlined /> 设置
       </div>
     </div>

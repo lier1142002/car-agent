@@ -8,7 +8,12 @@ import { EvalPanel } from '../Settings/EvalPanel';
 
 const { Sider, Content } = Layout;
 
-export const AppLayout: React.FC = () => {
+interface Props {
+  onLogout: () => void;
+  username: string;
+}
+
+export const AppLayout: React.FC<Props> = ({ onLogout, username }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [evalOpen, setEvalOpen] = useState(false);
 
@@ -16,8 +21,8 @@ export const AppLayout: React.FC = () => {
     <Layout style={{ height: '100vh' }}>
       <Sider width={220} style={{ background: '#0d1117', borderRight: '1px solid #30363d' }}>
         <Sidebar
-          onOpenSettings={() => setSettingsOpen(true)}
-          onOpenEval={() => setEvalOpen(true)}
+          onSettingsClick={() => setSettingsOpen(true)}
+          onEvalClick={() => setEvalOpen(true)}
         />
       </Sider>
       <Content style={{ display: 'flex', flexDirection: 'column' }}>
@@ -26,7 +31,8 @@ export const AppLayout: React.FC = () => {
       <Sider width={300} style={{ background: '#0d1117', borderLeft: '1px solid #30363d' }}>
         <TracePanel />
       </Sider>
-      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)}
+        username={username} onLogout={onLogout} />
       <EvalPanel open={evalOpen} onClose={() => setEvalOpen(false)} />
     </Layout>
   );
