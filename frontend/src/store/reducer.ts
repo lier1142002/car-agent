@@ -4,6 +4,10 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+function generateSessionId(): string {
+  return 'sess_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
 export const initialState: AppState = {
   conversations: [],
   activeId: '',
@@ -13,6 +17,9 @@ export const initialState: AppState = {
   sources: [],
   trace: [],
   agentState: null,
+  sessionId: generateSessionId(),
+  userId: 'default_user',
+  inputMode: 'chat',
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -36,6 +43,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'UPDATE_LAST_AGENT_MESSAGE': {
+      const msgs = [...state.messages];
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'agent') {
+          msgs[i] = { ...msgs[i], content: msgs[i].content + action.payload };
+          break;
+        }
+      }
+      return { ...state, messages: msgs };
+    }
+
+    case 'SET_LAST_AGENT_MESSAGE': {
       const msgs = [...state.messages];
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'agent') {
@@ -100,6 +118,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         trace: [],
         isThinking: false,
       };
+
+    case 'SET_SESSION_ID':
+      return { ...state, sessionId: action.payload };
+
+    case 'SET_INPUT_MODE':
+      return { ...state, inputMode: action.payload };
 
     default:
       return state;

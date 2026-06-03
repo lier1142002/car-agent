@@ -5,6 +5,10 @@ export interface Message {
   content: string;
   timestamp: number;
   citations?: Citation[];
+  /** 消息类型: 普通对话 / 车型对比 / 智能推荐 */
+  msgType?: 'chat' | 'compare' | 'recommend';
+  /** 结构化数据 (对比结果/推荐结果) */
+  structuredData?: Record<string, unknown>;
 }
 
 /** 引用来源（前端展示用） */
@@ -41,13 +45,7 @@ export interface TraceStep {
   timestamp?: number;
 }
 
-/** 追踪信息（后端API返回） */
-export interface Trace {
-  iterations: number;
-  tools_used: string[];
-}
-
-/** Agent 全局状态（后端API返回） */
+/** 旧版 Agent 全局状态 (保留兼容) */
 export interface AgentState {
   memory: Array<{ id: number; type: string; content: string; timestamp?: string }>;
   tools: string[];
@@ -55,57 +53,95 @@ export interface AgentState {
   iteration_count: number;
 }
 
-/** API Chat 请求 */
+/** ========== V2 API Types ========== */
+
+/** 输入模式 */
+export type InputMode = 'chat' | 'compare' | 'recommend';
+
+/** 统一 API 响应 */
+export interface ApiResponse<T = Record<string, unknown>> {
+  request_id: string;
+  session_id: string;
+  status: 'success' | 'degraded' | 'error';
+  data?: T;
+  error?: string;
+  degraded: boolean;
+  latency_ms: number;
+}
+
+/** 车型查询请求 */
+export interface VehicleQueryRequest {
+  session_id: string;
+  user_id: string;
+  query: string;
+}
+
+/** 多车对比请求 */
+export interface VehicleCompareRequest {
+  session_id: string;
+  user_id: string;
+  vehicles: string[];
+  aspects?: string[];
+}
+
+/** 智能推荐请求 */
+export interface RecommendRequest {
+  session_id: string;
+  user_id: string;
+  scenario?: string;
+  budget?: string;
+  preferences?: string[];
+}
+
+/** 会话关闭请求 */
+export interface SessionCloseRequest {
+  session_id: string;
+  user_id: string;
+}
+
+/** 对比结果 */
+export interface CompareResult {
+  structured_params: Record<string, Record<string, string[]>>;
+  llm_summary: string;
+  vehicle_count: number;
+}
+
+/** 推荐结果 */
+export interface RecommendResult {
+  recommendations: Array<{
+    vehicle: string;
+    total_score: number;
+    dimensions: Record<string, { score: number; reason: string; weight: number }>;
+  }>;
+}
+
+/** 健康检查响应 */
+export interface HealthResponse {
+  status: string;
+  redis: string;
+  rabbitmq: string;
+}
+
+/** ========== Legacy (keep for settings/eval) ========== */
+
 export interface ChatRequest {
   query: string;
 }
 
-/** API Chat 响应 */
 export interface ChatResponse {
   answer: string;
   sources: Source[];
-  trace: Trace;
+  trace: string[];
   actions: Array<{ tool: string; query: string }>;
 }
 
-/** WebSocket 消息 */
 export interface WSMessage {
-  type: 'plan_start' | 'plan_result' | 'tool_start' | 'tool_result'
-      | 'answer' | 'reflection' | 'done' | 'error';
+  type: string;
   payload: Record<string, unknown>;
 }
 
-/** 全局应用状态 */
-export interface AppState {
-  conversations: Conversation[];
-  activeId: string;
-  messages: Message[];
-  isThinking: boolean;
-  thinkingStatus: string;
-  sources: Source[];
-  trace: TraceStep[];
-  agentState: AgentState | null;
-}
-
-/** Reducer Action 类型 */
-export type AppAction =
-  | { type: 'SET_THINKING'; payload: boolean }
-  | { type: 'SET_THINKING_STATUS'; payload: string }
-  | { type: 'ADD_MESSAGE'; payload: Message }
-  | { type: 'UPDATE_LAST_AGENT_MESSAGE'; payload: string }
-  | { type: 'SET_SOURCES'; payload: Source[] }
-  | { type: 'ADD_TRACE_STEP'; payload: TraceStep }
-  | { type: 'UPDATE_TRACE_STEP'; payload: { step: string; status: TraceStep['status']; detail?: string } }
-  | { type: 'SET_AGENT_STATE'; payload: AgentState }
-  | { type: 'NEW_CONVERSATION' }
-  | { type: 'SWITCH_CONVERSATION'; payload: string }
-  | { type: 'CLEAR_MESSAGES' };
-
-/** 配置设置（API Key 脱敏显示） */
 export interface ConfigSettings {
   llm_api_key: string;
-  embedding_api_key: string;
-  embedding_provider: 'local' | 'qwen' | 'deepseek';
   serpapi_key: string;
   llamaparse_api_key: string;
   embedding_model: string;
@@ -115,11 +151,8 @@ export interface ConfigSettings {
   llm_max_tokens: number;
 }
 
-/** 更新配置请求体 */
 export interface UpdateConfigPayload {
   llm_api_key?: string;
-  embedding_api_key?: string;
-  embedding_provider?: 'local' | 'qwen' | 'deepseek';
   serpapi_key?: string;
   llamaparse_api_key?: string;
   llm_model?: string;
@@ -128,7 +161,6 @@ export interface UpdateConfigPayload {
   llm_max_tokens?: number;
 }
 
-/** PDF 上传响应 */
 export interface PdfUploadResponse {
   status: 'success' | 'error';
   filename: string;
@@ -136,7 +168,6 @@ export interface PdfUploadResponse {
   message: string;
 }
 
-/** 数据集摘要 */
 export interface DatasetSummary {
   name: string;
   total_samples: number;
@@ -144,7 +175,6 @@ export interface DatasetSummary {
   by_difficulty: Record<string, number>;
 }
 
-/** 评测运行请求 */
 export interface EvalRunRequest {
   dataset_name: string;
   retrieval_mode: 'dense' | 'sparse' | 'hybrid';
@@ -152,7 +182,6 @@ export interface EvalRunRequest {
   generate_answers: boolean;
 }
 
-/** 单条样本评测结果 */
 export interface EvalSampleResult {
   query: string;
   ground_truth: string;
@@ -168,7 +197,6 @@ export interface EvalSampleResult {
   generation_latency_ms: number;
 }
 
-/** 评测运行响应 */
 export interface EvalRunResponse {
   dataset_name: string;
   total_samples: number;
@@ -195,9 +223,41 @@ export interface EvalRunResponse {
   failed_samples: string[];
 }
 
-/** 权重扫描请求 */
 export interface WeightSweepRequest {
   dataset_name: string;
   top_k: number;
   generate_answers: boolean;
 }
+
+/** ========== App State ========== */
+
+export interface AppState {
+  conversations: Conversation[];
+  activeId: string;
+  messages: Message[];
+  isThinking: boolean;
+  thinkingStatus: string;
+  sources: Source[];
+  trace: TraceStep[];
+  agentState: AgentState | null;
+  /** V2 新增 */
+  sessionId: string;
+  userId: string;
+  inputMode: InputMode;
+}
+
+export type AppAction =
+  | { type: 'SET_THINKING'; payload: boolean }
+  | { type: 'SET_THINKING_STATUS'; payload: string }
+  | { type: 'ADD_MESSAGE'; payload: Message }
+  | { type: 'UPDATE_LAST_AGENT_MESSAGE'; payload: string }
+  | { type: 'SET_LAST_AGENT_MESSAGE'; payload: string }
+  | { type: 'SET_SOURCES'; payload: Source[] }
+  | { type: 'ADD_TRACE_STEP'; payload: TraceStep }
+  | { type: 'UPDATE_TRACE_STEP'; payload: { step: string; status: TraceStep['status']; detail?: string } }
+  | { type: 'SET_AGENT_STATE'; payload: AgentState }
+  | { type: 'NEW_CONVERSATION' }
+  | { type: 'SWITCH_CONVERSATION'; payload: string }
+  | { type: 'CLEAR_MESSAGES' }
+  | { type: 'SET_SESSION_ID'; payload: string }
+  | { type: 'SET_INPUT_MODE'; payload: InputMode };
