@@ -58,6 +58,18 @@ export async function closeSession(sessionId: string, userId: string): Promise<A
   });
 }
 
+/** 创建新会话 */
+export async function createSession(): Promise<ApiResponse<{ session_id: string; user_id: string }>> {
+  return request<ApiResponse<{ session_id: string; user_id: string }>>('/v1/session/create', {
+    method: 'POST',
+  });
+}
+
+/** 列出用户所有活跃会话 */
+export async function listSessions(): Promise<{ sessions: Array<{ session_id: string; user_id: string; message_count: number; created_at: string }>; user_id: string }> {
+  return request('/v1/sessions');
+}
+
 /** 健康检查 (v2) */
 export async function healthCheckV2(): Promise<HealthResponse> {
   return request<HealthResponse>('/health');

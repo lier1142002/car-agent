@@ -17,10 +17,15 @@ export const initialState: AppState = {
   sources: [],
   trace: [],
   agentState: null,
-  sessionId: generateSessionId(),
   userId: 'default_user',
   inputMode: 'chat',
 };
+
+/** 从 conversations 中获取当前活跃的 session_id */
+export function getActiveSessionId(state: AppState): string {
+  const conv = state.conversations.find(c => c.id === state.activeId);
+  return conv?.sessionId || '';
+}
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -88,6 +93,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         title: '新对话',
         messages: [],
         createdAt: Date.now(),
+        sessionId: generateSessionId(),  // 本地生成, AppContext 会异步注册到后端
       };
       return {
         ...state,
@@ -119,8 +125,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         isThinking: false,
       };
 
-    case 'SET_SESSION_ID':
-      return { ...state, sessionId: action.payload };
+    case 'SET_CONVERSATION_SESSION': {
+      return {
+        ...state,
+        conversations: state.conversations.map(c =>
+          c.id === action.payload.conversationId
+            ? { ...c, sessionId: action.payload.sessionId }
+            : c
+        ),
+      };
+    }
 
     case 'SET_INPUT_MODE':
       return { ...state, inputMode: action.payload };

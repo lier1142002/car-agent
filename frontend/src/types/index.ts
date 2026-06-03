@@ -26,6 +26,8 @@ export interface Conversation {
   title: string;
   messages: Message[];
   createdAt: number;
+  /** v2: 后端会话 ID (Redis 隔离, 每个对话独立) */
+  sessionId: string;
 }
 
 /** 引用来源（后端API返回） */
@@ -241,7 +243,6 @@ export interface AppState {
   trace: TraceStep[];
   agentState: AgentState | null;
   /** V2 新增 */
-  sessionId: string;
   userId: string;
   inputMode: InputMode;
 }
@@ -259,5 +260,5 @@ export type AppAction =
   | { type: 'NEW_CONVERSATION' }
   | { type: 'SWITCH_CONVERSATION'; payload: string }
   | { type: 'CLEAR_MESSAGES' }
-  | { type: 'SET_SESSION_ID'; payload: string }
+  | { type: 'SET_CONVERSATION_SESSION'; payload: { conversationId: string; sessionId: string } }
   | { type: 'SET_INPUT_MODE'; payload: InputMode };

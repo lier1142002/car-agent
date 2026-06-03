@@ -178,6 +178,55 @@ async def recommend(
     )
 
 
+@app.post("/api/v1/session/create", response_model=ApiResponse)
+async def session_create(
+    api_key_info: dict = Depends(verify_api_key),
+) -> ApiResponse:
+    """创建新会话, 返回 session_id."""
+    import uuid as _uuid
+    user_id = api_key_info.get("user_id", "default_user")
+    session_id = f"sess_{_uuid.uuid4().hex[:16]}"
+
+    # 初始化 session 元数据
+    await _redis.hset(f"session:{session_id}", mapping={
+        "user_id": user_id,
+        "created_at": str(time.time()),
+        "message_count": "0",
+    })
+    await _redis.expire(f"session:{session_id}", config.redis_session_ttl)
+    # 注册到用户会话列表
+    await _redis.sadd(f"user:{user_id}:sessions", session_id)
+
+    logger.info("会话已创建: session=%s user=%s", session_id, user_id)
+    return ApiResponse(
+        request_id="",
+        session_id=session_id,
+        status="success",
+        data={"session_id": session_id, "user_id": user_id},
+    )
+
+
+@app.get("/api/v1/sessions")
+async def list_sessions(
+    api_key_info: dict = Depends(verify_api_key),
+):
+    """列出当前用户的所有活跃会话."""
+    user_id = api_key_info.get("user_id", "default_user")
+    session_ids = await _redis.smembers(f"user:{user_id}:sessions")
+    sessions = []
+    for sid in session_ids:
+        meta = await _redis.hgetall(f"session:{sid}")
+        if meta:
+            sessions.append({
+                "session_id": sid,
+                "user_id": meta.get("user_id", ""),
+                "message_count": int(meta.get("message_count", 0)),
+                "created_at": meta.get("created_at", ""),
+            })
+    sessions.sort(key=lambda s: s.get("created_at", ""), reverse=True)
+    return {"sessions": sessions, "user_id": user_id}
+
+
 @app.post("/api/v1/session/close", response_model=ApiResponse)
 async def session_close(
     req: SessionCloseRequest,
@@ -188,6 +237,7 @@ async def session_close(
         f"session:{req.session_id}:messages",
         f"session:{req.session_id}:state",
     )
+    await _redis.srem(f"user:{req.user_id}:sessions", req.session_id)
     logger.info("会话已关闭: session_id=%s", req.session_id)
     return ApiResponse(
         request_id="",

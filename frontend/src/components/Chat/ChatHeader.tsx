@@ -11,7 +11,7 @@ const MODE_LABELS: Record<string, string> = {
 };
 
 export const ChatHeader: React.FC = () => {
-  const { state, startNewConversation, clearCurrentSession } = useApp();
+  const { state, startNewConversation, clearCurrentSession, activeSessionId } = useApp();
 
   return (
     <div className={styles.chatHeader}>
@@ -19,10 +19,10 @@ export const ChatHeader: React.FC = () => {
         <ApiOutlined />
         <span style={{ fontWeight: 600 }}>AutoSales Agent</span>
         <Tag color="blue">{MODE_LABELS[state.inputMode] || state.inputMode}</Tag>
-        {state.sessionId && (
-          <Tooltip title={`Session: ${state.sessionId}`}>
+        {activeSessionId && (
+          <Tooltip title={`Session: ${activeSessionId}`}>
             <Tag color="green" style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {state.sessionId.slice(0, 12)}...
+              {activeSessionId.slice(0, 12)}...
             </Tag>
           </Tooltip>
         )}
